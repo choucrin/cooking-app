@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 const NAV_ITEMS = [
   { href: "/ingredients", label: "食材登録", icon: "🥕" },
@@ -12,6 +12,15 @@ const NAV_ITEMS = [
 
 export default function NavBar() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  if (pathname === "/login") return null;
+
+  const handleLogout = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.replace("/login");
+    router.refresh();
+  };
 
   return (
     <>
@@ -20,24 +29,33 @@ export default function NavBar() {
           <Link href="/" className="text-lg font-bold tracking-tight">
             🍳 今日の献立
           </Link>
-          <nav className="hidden gap-1 sm:flex">
-            {NAV_ITEMS.map((item) => {
-              const active = pathname?.startsWith(item.href);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                    active
-                      ? "bg-emerald-600 text-white"
-                      : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
-                  }`}
-                >
-                  {item.icon} {item.label}
-                </Link>
-              );
-            })}
-          </nav>
+          <div className="flex items-center gap-1">
+            <nav className="hidden items-center gap-1 sm:flex">
+              {NAV_ITEMS.map((item) => {
+                const active = pathname?.startsWith(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                      active
+                        ? "bg-emerald-600 text-white"
+                        : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                    }`}
+                  >
+                    {item.icon} {item.label}
+                  </Link>
+                );
+              })}
+            </nav>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="rounded-full px-3 py-1.5 text-xs font-medium text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 dark:hover:bg-neutral-800"
+            >
+              ログアウト
+            </button>
+          </div>
         </div>
       </header>
 

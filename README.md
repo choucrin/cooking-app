@@ -10,6 +10,7 @@
 | レシピ提案 | 在庫あり／買い足し可の食材から選択 → Claude API が料理名・材料と分量・具体的な手順・1人分の栄養成分（エネルギー・たんぱく質・脂質・炭水化物・食塩相当量）を提案（調味料は登録済みのものが自動的にすべて使用可能） |
 | レシピライブラリ | 「作った」を選んだレシピを保存。使用食材で検索可能 |
 | カレンダー記録 | 「作った」を選ぶと当日の日付に自動記録。カレンダーから日付ジャンプで過去のレシピを閲覧 |
+| アクセス制限 | 共通パスワードによる簡易ログイン。URL を知っているだけの第三者が Claude API 利用枠を消費したりデータを閲覧・編集したりできないようにする |
 
 ## 技術スタック
 
@@ -68,6 +69,7 @@ cp .env.example .env.local
 DATABASE_URL="postgres://user:password@host:5432/dbname?sslmode=require"
 ANTHROPIC_API_KEY="sk-ant-xxxxxxxx"
 ANTHROPIC_MODEL="claude-sonnet-5"
+APP_PASSWORD="好きなパスワードを設定"
 ```
 
 #### `DATABASE_URL` の取得方法（Vercel Postgres / Neon の例）
@@ -83,6 +85,14 @@ ANTHROPIC_MODEL="claude-sonnet-5"
 3. 発行したキーを `.env.local` の `ANTHROPIC_API_KEY` に貼り付け
 
 利用するモデルは `ANTHROPIC_MODEL` で切り替えられます（未設定時は `claude-sonnet-5`）。Anthropic Console の Billing 設定でクレジットを追加しておく必要があります。
+
+#### `APP_PASSWORD`（アクセス制限）について
+
+このアプリは URL さえ知っていれば誰でもアクセスできてしまうため、`APP_PASSWORD` に十分に推測されにくい文字列を設定してください。ログイン画面でこのパスワードを入力すると、以後30日間有効なセッションCookieが発行されます。
+
+- `src/proxy.ts`（Next.js の Proxy／旧 Middleware）が全ページ・全APIへのアクセスをチェックし、未ログインなら `/login` にリダイレクト（APIの場合は401を返却）します
+- **パスワードを変更すると、発行済みの全セッションが即座に無効化されます**（全端末で再ログインが必要になります）。第三者にパスワードが漏れた疑いがある場合は、`APP_PASSWORD` を変更して再デプロイしてください
+- 追加の安全策として、[Anthropic Console](https://console.anthropic.com/settings/limits) で API キーの使用上限（Spend Limit）を設定しておくことを推奨します
 
 ### 4. データベースにテーブルを作成
 
@@ -110,6 +120,7 @@ npm run dev
    - `DATABASE_URL`（Storage 連携済みなら自動設定済み）
    - `ANTHROPIC_API_KEY`
    - `ANTHROPIC_MODEL`（任意、省略可）
+   - `APP_PASSWORD`（第三者による無断利用を防ぐための必須設定。上記「`APP_PASSWORD`（アクセス制限）について」を参照）
 4. **マイグレーションを本番 DB に適用する** — 初回デプロイ前後に、ローカルから本番 `DATABASE_URL` を指定して1回実行します
    ```bash
    DATABASE_URL="（本番の接続文字列）" npx prisma migrate deploy
@@ -123,7 +134,7 @@ npm run dev
 
 本アプリはクラウド DB を使う通常の Web アプリのため、**iPhone の Safari／Windows のブラウザどちらからアクセスしても同じデータ**を見ることができます（同一の Vercel URL を開くだけです）。特別なアプリインストールは不要ですが、iPhone では Safari の共有メニューから「ホーム画面に追加」するとアプリのように使えます。
 
-複数人・複数端末から同時に使う場合でも、DB が共有されているため登録した食材やレシピはすぐに反映されます（ユーザー認証は実装していないため、URL を知っている人は誰でも編集できる点に注意してください。家族内利用を想定していますが、公開を避けたい場合は Vercel の [Password Protection](https://vercel.com/docs/deployment-protection) 機能などの利用を検討してください）。
+複数人・複数端末から同時に使う場合でも、DB が共有されているため登録した食材やレシピはすぐに反映されます。全ページ・全APIが `APP_PASSWORD` による共通パスワード認証で保護されているため、家族内など特定のメンバーだけで安全に共有できます（各端末で最初の1回だけログインすれば、以後30日間はログイン状態が保たれます）。
 
 ---
 
@@ -131,19 +142,23 @@ npm run dev
 
 ```
 src/
+  proxy.ts                    # 全ページ/APIの認証チェック（旧middleware）
   app/
     page.tsx                 # トップページ
+    login/page.tsx           # ログイン画面
     ingredients/page.tsx     # 食材・調味料登録画面
     suggest/page.tsx         # レシピ提案画面
     library/page.tsx         # レシピライブラリ画面
     calendar/page.tsx        # カレンダー画面
     api/
+      auth/                  # ログイン・ログアウトAPI
       ingredients/           # 食材CRUD API
       recipes/               # レシピ保存・検索・削除API
       suggest/               # Claude APIを呼び出すレシピ提案API
   lib/
     prisma.ts                # Prisma Client（driver adapter設定）
     anthropic.ts             # Anthropic Clientラッパー
+    auth.ts                  # セッショントークンの発行・検証
     types.ts                 # 共通の型・カテゴリ定義
 prisma/
   schema.prisma              # DBスキーマ定義
