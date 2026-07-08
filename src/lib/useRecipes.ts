@@ -3,11 +3,23 @@
 import { useEffect, useState } from "react";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import type { Recipe } from "@/lib/types";
+import { normalizeStep, type Recipe, type RecipeIngredientItem } from "@/lib/types";
 import type { Timestamp } from "firebase/firestore";
 
 function toIso(value: Timestamp | undefined): string {
   return value ? value.toDate().toISOString() : new Date().toISOString();
+}
+
+// 目印記号の導入前に保存された食材・調味料には mark フィールドがないため、
+// 読み込み時に空文字を補う
+function normalizeMaterialItem(
+  raw: Partial<RecipeIngredientItem>
+): RecipeIngredientItem {
+  return {
+    name: raw.name ?? "",
+    amount: raw.amount ?? "",
+    mark: raw.mark ?? "",
+  };
 }
 
 export function useRecipes() {
@@ -31,9 +43,9 @@ export function useRecipes() {
               return {
                 id: d.id,
                 title: data.title,
-                ingredients: data.ingredients ?? [],
-                seasonings: data.seasonings ?? [],
-                steps: data.steps ?? [],
+                ingredients: (data.ingredients ?? []).map(normalizeMaterialItem),
+                seasonings: (data.seasonings ?? []).map(normalizeMaterialItem),
+                steps: (data.steps ?? []).map(normalizeStep),
                 ingredientNames: data.ingredientNames ?? [],
                 cookedDates: cookedDates
                   .map((ts) => toIso(ts))

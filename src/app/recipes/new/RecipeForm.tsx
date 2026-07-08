@@ -18,8 +18,12 @@ import MaterialRowsEditor, {
   type MaterialRow,
 } from "@/components/MaterialRowsEditor";
 import StepsEditor from "@/components/StepsEditor";
-import { SEASONING_CATEGORY, collectFoodCategories } from "@/lib/types";
-import type { RecipeIngredientItem } from "@/lib/types";
+import {
+  SEASONING_CATEGORY,
+  collectFoodCategories,
+  normalizeStep,
+} from "@/lib/types";
+import type { RecipeIngredientItem, RecipeStep } from "@/lib/types";
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -34,12 +38,17 @@ function toMaterialRows(
     mode: knownNames.has(item.name) ? "select" : "custom",
     name: item.name,
     amount: item.amount,
+    mark: item.mark ?? "",
   }));
 }
 
 function cleanRows(rows: MaterialRow[]): RecipeIngredientItem[] {
   return rows
-    .map((r) => ({ name: r.name.trim(), amount: r.amount.trim() }))
+    .map((r) => ({
+      name: r.name.trim(),
+      amount: r.amount.trim(),
+      mark: (r.mark ?? "").trim(),
+    }))
     .filter((r) => r.name.length > 0);
 }
 
@@ -56,7 +65,9 @@ export default function RecipeForm() {
   const [seasoningRows, setSeasoningRows] = useState<MaterialRow[]>([
     emptyMaterialRow(),
   ]);
-  const [steps, setSteps] = useState<string[]>([""]);
+  const [steps, setSteps] = useState<RecipeStep[]>([
+    { headline: "", detail: "" },
+  ]);
   // まだ作っていないレシピだけを登録したい場合のため、作った日の記録は選択式にする
   const [recordCookedDate, setRecordCookedDate] = useState(true);
   const [cookedAt, setCookedAt] = useState(today());
@@ -77,7 +88,11 @@ export default function RecipeForm() {
         setTitle(data.title ?? "");
         setIngredientRows(toMaterialRows(data.ingredients, knownNames));
         setSeasoningRows(toMaterialRows(data.seasonings, knownNames));
-        setSteps(data.steps?.length ? data.steps : [""]);
+        setSteps(
+          data.steps?.length
+            ? data.steps.map(normalizeStep)
+            : [{ headline: "", detail: "" }]
+        );
         const cookedDates: Timestamp[] = data.cookedDates?.length
           ? data.cookedDates
           : data.cookedAt
@@ -134,7 +149,9 @@ export default function RecipeForm() {
     try {
       const cleanedIngredients = cleanRows(ingredientRows);
       const cleanedSeasonings = cleanRows(seasoningRows);
-      const cleanedSteps = steps.map((s) => s.trim()).filter((s) => s.length > 0);
+      const cleanedSteps = steps
+        .map((s) => ({ headline: s.headline.trim(), detail: s.detail.trim() }))
+        .filter((s) => s.headline.length > 0 || s.detail.length > 0);
 
       // 「その他」タブから新規入力された材料・調味料を食材登録に自動保存する
       // （大文字・小文字の違いだけの重複や、同じ回の複数行での重複は登録しない）
@@ -308,7 +325,7 @@ export default function RecipeForm() {
 
         <div className="flex flex-col gap-2">
           <label className="text-xs font-medium text-neutral-500">
-            作り方（工程ごとに分けて記録できます）
+            作り方（工程ごとに分けて記録できます。各工程は「大まかな指示」と「詳細な指示」の2段階で書けます）
           </label>
           <StepsEditor steps={steps} onChange={setSteps} />
         </div>

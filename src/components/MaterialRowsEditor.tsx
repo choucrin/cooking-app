@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { katakanaToHiragana, normalizeForSearch } from "@/lib/kana";
+import { MATERIAL_MARKS } from "@/lib/types";
 
 // 漢字を含む名前は正しく読めないため自動提案しない（カタカナ・ひらがなのみ変換）
 const CJK_IDEOGRAPH = /[一-龯]/;
@@ -13,10 +14,12 @@ export interface MaterialRow {
   // 「その他」で新規入力中、IME変換で漢字になる直前の最後のひらがな状態。
   // その場で新規登録する食材のよみがなとして使う
   readingHint?: string;
+  // 手順で「★の調味料をあわせておく」のように参照するための目印記号
+  mark?: string;
 }
 
 export function emptyMaterialRow(): MaterialRow {
-  return { mode: "select", name: "", amount: "", readingHint: "" };
+  return { mode: "select", name: "", amount: "", readingHint: "", mark: "" };
 }
 
 export interface MaterialOption {
@@ -191,6 +194,20 @@ export default function MaterialRowsEditor({
     <div className="flex flex-col gap-2">
       {rows.map((row, index) => (
         <div key={index} className="flex flex-wrap gap-2">
+          <select
+            value={row.mark ?? ""}
+            onChange={(e) => updateRow(index, { mark: e.target.value })}
+            title="手順で参照するための目印"
+            aria-label="目印"
+            className="w-14 shrink-0 rounded-lg border border-black/10 px-1 py-2 text-center text-sm dark:border-white/10 dark:bg-neutral-900"
+          >
+            <option value="">−</option>
+            {MATERIAL_MARKS.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
           {row.mode === "select" ? (
             <MaterialCombobox
               value={row.name}
