@@ -14,13 +14,29 @@ export interface MaterialRow {
   // 「その他」で新規入力中、IME変換で漢字になる直前の最後のひらがな状態。
   // その場で新規登録する食材のよみがなとして使う
   readingHint?: string;
+  // よみを手動で編集したら、名前の変更に合わせた自動提案で上書きしないようにする
+  readingTouched?: boolean;
   // 手順で「★の調味料をあわせておく」のように参照するための目印記号
   mark?: string;
+  // 「その他」で新規入力中の食材ジャンル（食材登録画面と同じ選択肢から選ぶ）
+  category?: string;
+  categoryMode?: "select" | "custom";
 }
 
 export function emptyMaterialRow(): MaterialRow {
-  return { mode: "select", name: "", amount: "", readingHint: "", mark: "" };
+  return {
+    mode: "select",
+    name: "",
+    amount: "",
+    readingHint: "",
+    readingTouched: false,
+    mark: "",
+    category: "",
+    categoryMode: "select",
+  };
 }
+
+const CUSTOM_CATEGORY_VALUE = "__custom__";
 
 export interface MaterialOption {
   name: string;
@@ -176,12 +192,16 @@ export default function MaterialRowsEditor({
   optionGroups,
   addLabel,
   namePlaceholder,
+  categoryOptions,
 }: {
   rows: MaterialRow[];
   onChange: (rows: MaterialRow[]) => void;
   optionGroups: MaterialOptionGroup[];
   addLabel: string;
   namePlaceholder: string;
+  // 指定すると、「その他」で新規入力する際にここから食材ジャンルを選べるようになる
+  // （調味料など、ジャンルが一意に決まる場合は渡さない）
+  categoryOptions?: string[];
 }) {
   const updateRow = (index: number, patch: Partial<MaterialRow>) => {
     onChange(rows.map((r, i) => (i === index ? { ...r, ...patch } : r)));
@@ -214,36 +234,110 @@ export default function MaterialRowsEditor({
               optionGroups={optionGroups}
               onSelect={(name) => updateRow(index, { name })}
               onSelectCustom={() =>
-                updateRow(index, { mode: "custom", name: "" })
+                updateRow(index, {
+                  mode: "custom",
+                  name: "",
+                  readingHint: "",
+                  readingTouched: false,
+                  category: categoryOptions?.[0] ?? "",
+                  categoryMode: "select",
+                })
               }
             />
           ) : (
-            <div className="flex min-w-[140px] flex-1 gap-1">
+            <>
+              <div className="flex min-w-[140px] flex-1 gap-1">
+                <input
+                  value={row.name}
+                  onChange={(e) => {
+                    const name = e.target.value;
+                    if (row.readingTouched) {
+                      updateRow(index, { name });
+                    } else if (CJK_IDEOGRAPH.test(name)) {
+                      // 変換直後で漢字になった場合は、変換前の最後のひらがな状態を保持する
+                      updateRow(index, { name });
+                    } else {
+                      updateRow(index, {
+                        name,
+                        readingHint: katakanaToHiragana(name),
+                      });
+                    }
+                  }}
+                  placeholder={namePlaceholder}
+                  className="flex-1 rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-neutral-900"
+                />
+                <button
+                  type="button"
+                  onClick={() => updateRow(index, { mode: "select", name: "" })}
+                  className="whitespace-nowrap rounded-lg border border-black/10 px-2 text-xs text-neutral-500 dark:border-white/20"
+                >
+                  一覧から選ぶ
+                </button>
+              </div>
               <input
-                value={row.name}
-                onChange={(e) => {
-                  const name = e.target.value;
-                  if (CJK_IDEOGRAPH.test(name)) {
-                    // 変換直後で漢字になった場合は、変換前の最後のひらがな状態を保持する
-                    updateRow(index, { name });
-                  } else {
-                    updateRow(index, {
-                      name,
-                      readingHint: katakanaToHiragana(name),
-                    });
-                  }
-                }}
-                placeholder={namePlaceholder}
-                className="flex-1 rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-neutral-900"
+                value={row.readingHint ?? ""}
+                onChange={(e) =>
+                  updateRow(index, {
+                    readingHint: e.target.value,
+                    readingTouched: true,
+                  })
+                }
+                placeholder="よみがな"
+                className="w-24 shrink-0 rounded-lg border border-black/10 px-2 py-2 text-xs dark:border-white/10 dark:bg-neutral-900"
               />
-              <button
-                type="button"
-                onClick={() => updateRow(index, { mode: "select", name: "" })}
-                className="whitespace-nowrap rounded-lg border border-black/10 px-2 text-xs text-neutral-500 dark:border-white/20"
-              >
-                一覧から選ぶ
-              </button>
-            </div>
+              {categoryOptions && categoryOptions.length > 0 && (
+                <div className="shrink-0">
+                  {row.categoryMode !== "custom" ? (
+                    <select
+                      value={row.category || categoryOptions[0]}
+                      onChange={(e) => {
+                        if (e.target.value === CUSTOM_CATEGORY_VALUE) {
+                          updateRow(index, {
+                            categoryMode: "custom",
+                            category: "",
+                          });
+                        } else {
+                          updateRow(index, { category: e.target.value });
+                        }
+                      }}
+                      className="rounded-lg border border-black/10 px-2 py-2 text-xs dark:border-white/10 dark:bg-neutral-900"
+                    >
+                      {categoryOptions.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                      <option value={CUSTOM_CATEGORY_VALUE}>
+                        ＋ 新しいジャンル
+                      </option>
+                    </select>
+                  ) : (
+                    <div className="flex gap-1">
+                      <input
+                        value={row.category ?? ""}
+                        onChange={(e) =>
+                          updateRow(index, { category: e.target.value })
+                        }
+                        placeholder="新しいジャンル名"
+                        className="w-24 rounded-lg border border-black/10 px-2 py-2 text-xs dark:border-white/10 dark:bg-neutral-900"
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateRow(index, {
+                            categoryMode: "select",
+                            category: categoryOptions[0],
+                          })
+                        }
+                        className="whitespace-nowrap rounded-lg border border-black/10 px-2 text-xs text-neutral-500 dark:border-white/20"
+                      >
+                        一覧
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
           <input
             value={row.amount}

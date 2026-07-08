@@ -115,15 +115,20 @@ export default function RecipeForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editId]);
 
+  const foodCategoryOptions = useMemo(
+    () => collectFoodCategories(allIngredients),
+    [allIngredients]
+  );
+
   const ingredientOptionGroups = useMemo(
     () =>
-      collectFoodCategories(allIngredients).map((cat) => ({
+      foodCategoryOptions.map((cat) => ({
         label: cat,
         options: allIngredients
           .filter((i) => i.category === cat)
           .map((i) => ({ name: i.name, reading: i.reading })),
       })),
-    [allIngredients]
+    [allIngredients, foodCategoryOptions]
   );
 
   const seasoningOptionGroups = useMemo(
@@ -159,10 +164,12 @@ export default function RecipeForm() {
         allIngredients.map((i) => i.name.trim().toLowerCase())
       );
       const pickNewNames = (
-        materialRows: MaterialRow[]
-      ): { name: string; reading: string }[] => {
+        materialRows: MaterialRow[],
+        fallbackCategory: string
+      ): { name: string; reading: string; category: string }[] => {
         const seen = new Set<string>();
-        const result: { name: string; reading: string }[] = [];
+        const result: { name: string; reading: string; category: string }[] =
+          [];
         for (const r of materialRows) {
           if (r.mode !== "custom") continue;
           const trimmed = r.name.trim();
@@ -170,18 +177,22 @@ export default function RecipeForm() {
           const lower = trimmed.toLowerCase();
           if (existingNamesLower.has(lower) || seen.has(lower)) continue;
           seen.add(lower);
-          result.push({ name: trimmed, reading: (r.readingHint ?? "").trim() });
+          result.push({
+            name: trimmed,
+            reading: (r.readingHint ?? "").trim(),
+            category: (r.category ?? "").trim() || fallbackCategory,
+          });
         }
         return result;
       };
-      const newFoodItems = pickNewNames(ingredientRows);
-      const newSeasoningItems = pickNewNames(seasoningRows);
+      const newFoodItems = pickNewNames(ingredientRows, "その他");
+      const newSeasoningItems = pickNewNames(seasoningRows, SEASONING_CATEGORY);
 
       await Promise.all([
-        ...newFoodItems.map(({ name, reading }) =>
+        ...newFoodItems.map(({ name, reading, category }) =>
           addDoc(collection(db, "ingredients"), {
             name,
-            category: "その他",
+            category,
             reading,
             stock: 0,
             canBuy: false,
@@ -189,10 +200,10 @@ export default function RecipeForm() {
             updatedAt: serverTimestamp(),
           })
         ),
-        ...newSeasoningItems.map(({ name, reading }) =>
+        ...newSeasoningItems.map(({ name, reading, category }) =>
           addDoc(collection(db, "ingredients"), {
             name,
-            category: SEASONING_CATEGORY,
+            category,
             reading,
             stock: 0,
             canBuy: false,
@@ -249,7 +260,7 @@ export default function RecipeForm() {
           {editId ? "レシピを編集" : "レシピを書く"}
         </h1>
         <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-          料理名・使った材料・作り方を記録しましょう。登録済みの食材・調味料から選べます（一覧にないものは「その他」から新しく登録できます）。
+          料理名・使った材料・作り方を記録しましょう。登録済みの食材・調味料から選べます（一覧にないものは「その他」からジャンル・よみがなも指定して新しく登録できます）。
         </p>
       </div>
 
@@ -307,6 +318,7 @@ export default function RecipeForm() {
             optionGroups={ingredientOptionGroups}
             addLabel="＋ 食材を追加"
             namePlaceholder="新しい食材名"
+            categoryOptions={foodCategoryOptions}
           />
         </div>
 
