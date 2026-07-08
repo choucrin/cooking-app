@@ -270,14 +270,9 @@ export default function IngredientsPage() {
                         key={ing.id}
                         className="flex flex-wrap items-center gap-3 rounded-xl border border-black/10 bg-white px-4 py-3 shadow-sm dark:border-white/10 dark:bg-neutral-900"
                       >
-                        <div className="flex min-w-[80px] flex-1 flex-col">
-                          <span className="font-medium">{ing.name}</span>
-                          {ing.reading && (
-                            <span className="text-xs text-neutral-400">
-                              {ing.reading}
-                            </span>
-                          )}
-                        </div>
+                        <span className="min-w-[80px] flex-1 font-medium">
+                          {ing.name}
+                        </span>
 
                         {category !== SEASONING_CATEGORY && (
                           <div className="flex items-center gap-1">
