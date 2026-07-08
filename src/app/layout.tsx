@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import NavBar from "@/components/NavBar";
 import AuthGate from "@/components/AuthGate";
@@ -15,9 +15,38 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// GitHub Pagesのサブパス配信に合わせて、アイコン等のリンクにもbasePathを付与する
+// （next.config.ts と同じ仕組み）
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
+
 export const metadata: Metadata = {
   title: "今日の献立 | 自分だけのレシピノート",
   description: "食材の在庫を管理し、手作りレシピを記録・検索できるアプリ",
+  manifest: `${basePath}/manifest.json`,
+  icons: {
+    icon: [
+      { url: `${basePath}/favicon.ico`, sizes: "any" },
+      { url: `${basePath}/icon-192.png`, sizes: "192x192", type: "image/png" },
+      { url: `${basePath}/icon-512.png`, sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: `${basePath}/apple-icon.png`, sizes: "180x180", type: "image/png" },
+    ],
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "今日の献立",
+  },
+  other: {
+    // NextのappleWebAppは標準化された mobile-web-app-capable のみを出力するため、
+    // 古いiOS Safariとの互換性のためレガシーな apple- 接頭辞版も明示的に追加する
+    "apple-mobile-web-app-capable": "yes",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#059669",
 };
 
 export default function RootLayout({

@@ -127,7 +127,15 @@ npm run serve        # out/ をローカル配信
 
 ## iPhone / Windows でのデータ共有について
 
-Firebase（Authentication + Firestore）を使ったクラウド同期のため、iPhoneのSafari・WindowsのブラウザどちらからGitHub PagesのURLにアクセスしても、ログインすれば同じデータを見ることができます。Firestoreはリアルタイム同期のため、片方の端末で登録・編集した内容はほぼ即座にもう片方にも反映されます。iPhoneではSafariの共有メニューから「ホーム画面に追加」するとアプリのように使えます。
+Firebase（Authentication + Firestore）を使ったクラウド同期のため、iPhoneのSafari・WindowsのブラウザどちらからGitHub PagesのURLにアクセスしても、ログインすれば同じデータを見ることができます。Firestoreはリアルタイム同期のため、片方の端末で登録・編集した内容はほぼ即座にもう片方にも反映されます。
+
+### iPhoneでアプリのように使う（ホーム画面に追加）
+
+1. iPhoneのSafariでアプリのURLを開く
+2. 共有メニュー（下部中央の四角に上矢印のアイコン）→「ホーム画面に追加」
+3. ホーム画面に専用アイコンが追加され、タップするとSafariのアドレスバー等がない全画面表示（スタンドアロンモード）で起動する
+
+アプリ用のアイコン（`public/apple-icon.png` 等）とWeb App Manifest（`public/manifest.json`）をあらかじめ用意してあるため、追加の設定は不要です。
 
 ---
 
