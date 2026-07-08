@@ -2,10 +2,13 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 
 export default function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -15,20 +18,11 @@ export default function LoginForm() {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "ログインに失敗しました");
-      }
+      await signInWithEmailAndPassword(auth, email, password);
       const redirect = params.get("redirect") || "/";
       router.replace(redirect);
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "ログインに失敗しました");
+    } catch {
+      setError("メールアドレスまたはパスワードが違います");
     } finally {
       setSubmitting(false);
     }
@@ -43,15 +37,22 @@ export default function LoginForm() {
         <div>
           <h1 className="text-xl font-bold">🍳 今日の献立</h1>
           <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-            パスワードを入力してください
+            Firebaseに登録されたアカウントでログインしてください
           </p>
         </div>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="メールアドレス"
+          autoFocus
+          className="rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-neutral-800"
+        />
         <input
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="パスワード"
-          autoFocus
           className="rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-neutral-800"
         />
         {error && (
@@ -59,7 +60,7 @@ export default function LoginForm() {
         )}
         <button
           type="submit"
-          disabled={submitting || password.length === 0}
+          disabled={submitting || !email || !password}
           className="rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
         >
           {submitting ? "確認中..." : "ログイン"}

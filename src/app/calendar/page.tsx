@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import Link from "next/link";
 import {
   addMonths,
   eachDayOfInterval,
@@ -13,35 +14,25 @@ import {
   startOfWeek,
 } from "date-fns";
 import { ja } from "date-fns/locale";
-import type { Recipe } from "@/lib/types";
-import NutritionBadges from "@/components/NutritionBadges";
+import { useRecipes } from "@/lib/useRecipes";
+import RecipeDetail from "@/components/RecipeDetail";
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
 
 export default function CalendarPage() {
+  const { recipes, loading } = useRecipes();
   const [month, setMonth] = useState(() => startOfMonth(new Date()));
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      const monthKey = format(month, "yyyy-MM");
-      const res = await fetch(`/api/recipes?month=${monthKey}`);
-      const data = await res.json();
-      setRecipes(data);
-      setLoading(false);
-    })();
-  }, [month]);
 
   const recipesByDay = useMemo(() => {
-    const map = new Map<string, Recipe[]>();
+    const map = new Map<string, typeof recipes>();
     for (const r of recipes) {
-      const key = format(new Date(r.cookedAt), "yyyy-MM-dd");
-      const list = map.get(key) ?? [];
-      list.push(r);
-      map.set(key, list);
+      for (const cookedAt of r.cookedDates) {
+        const key = format(new Date(cookedAt), "yyyy-MM-dd");
+        const list = map.get(key) ?? [];
+        list.push(r);
+        map.set(key, list);
+      }
     }
     return map;
   }, [recipes]);
@@ -60,7 +51,7 @@ export default function CalendarPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">カレンダー</h1>
         <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-          実際に作った料理を日付から確認できます。
+          記録したレシピを日付から確認できます。
         </p>
       </div>
 
@@ -128,26 +119,34 @@ export default function CalendarPage() {
 
       <div className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-neutral-900">
         <h3 className="mb-3 font-semibold">
-          {format(selectedDate, "yyyy年M月d日", { locale: ja })}に作った料理
+          {format(selectedDate, "yyyy年M月d日", { locale: ja })}のレシピ
         </h3>
         {loading ? (
           <p className="text-sm text-neutral-500">読み込み中...</p>
         ) : selectedRecipes.length === 0 ? (
           <p className="text-sm text-neutral-500">
-            この日に作った料理はありません。
+            この日に記録されたレシピはありません。
           </p>
         ) : (
           <ul className="flex flex-col gap-4">
             {selectedRecipes.map((r) => (
-              <li key={r.id} className="border-t border-black/10 pt-4 first:border-0 first:pt-0 dark:border-white/10">
-                <p className="font-semibold">{r.title}</p>
+              <li
+                key={r.id}
+                className="border-t border-black/10 pt-4 first:border-0 first:pt-0 dark:border-white/10"
+              >
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="font-semibold">{r.title}</p>
+                  <Link
+                    href={`/recipes/new?id=${r.id}`}
+                    className="text-xs text-neutral-500 hover:text-emerald-600"
+                  >
+                    編集する
+                  </Link>
+                </div>
                 <p className="mb-2 text-xs text-neutral-500">
                   {r.ingredientNames.join(", ")}
                 </p>
-                <p className="mb-3 whitespace-pre-wrap text-sm leading-relaxed">
-                  {r.instructions}
-                </p>
-                <NutritionBadges nutrition={r.nutrition} />
+                <RecipeDetail recipe={r} />
               </li>
             ))}
           </ul>

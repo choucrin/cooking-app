@@ -1,6 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  serverTimestamp,
+  updateDoc,
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useIngredients } from "@/lib/useIngredients";
 import {
   ALL_CATEGORIES,
   CATEGORY_LABELS,
@@ -16,31 +26,9 @@ const emptyForm = {
 };
 
 export default function IngredientsPage() {
-  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { ingredients, loading } = useIngredients();
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
-  const [submitting, setSubmitting] = useState(false);
-
-  const load = async () => {
-    try {
-      const res = await fetch("/api/ingredients");
-      if (!res.ok) throw new Error("読み込みに失敗しました");
-      const data = await res.json();
-      setIngredients(data);
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "読み込みに失敗しました");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    (async () => {
-      await load();
-    })();
-  }, []);
 
   const grouped = useMemo(() => {
     const map = new Map<IngredientCategory, Ingredient[]>();
@@ -51,43 +39,50 @@ export default function IngredientsPage() {
     return map;
   }, [ingredients]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim()) return;
-    setSubmitting(true);
-    try {
-      const res = await fetch("/api/ingredients", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      if (!res.ok) throw new Error("登録に失敗しました");
-      setForm({ ...emptyForm, category: form.category });
-      await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "登録に失敗しました");
-    } finally {
-      setSubmitting(false);
+    const trimmedName = form.name.trim();
+    if (!trimmedName) return;
+
+    const isDuplicate = ingredients.some(
+      (i) => i.name.trim().toLowerCase() === trimmedName.toLowerCase()
+    );
+    if (isDuplicate) {
+      setError("すでに同じ名前の食材・調味料が登録されています");
+      return;
     }
+
+    setError(null);
+    const { category, canBuy } = form;
+    const stock = Math.max(0, form.stock);
+
+    // 保存の完了を待たずにフォームをリセットし、連続して登録できるようにする
+    setForm({ ...emptyForm, category });
+
+    addDoc(collection(db, "ingredients"), {
+      name: trimmedName,
+      category,
+      stock,
+      canBuy,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }).catch((err) => {
+      setError(err instanceof Error ? err.message : "登録に失敗しました");
+    });
   };
 
   const updateIngredient = async (
     id: string,
     data: Partial<Pick<Ingredient, "stock" | "canBuy">>
   ) => {
-    setIngredients((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, ...data } : i))
-    );
-    await fetch(`/api/ingredients/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
+    await updateDoc(doc(db, "ingredients", id), {
+      ...data,
+      updatedAt: serverTimestamp(),
     });
   };
 
   const deleteIngredient = async (id: string) => {
-    setIngredients((prev) => prev.filter((i) => i.id !== id));
-    await fetch(`/api/ingredients/${id}`, { method: "DELETE" });
+    await deleteDoc(doc(db, "ingredients", id));
   };
 
   return (
@@ -95,7 +90,7 @@ export default function IngredientsPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">食材・調味料の登録</h1>
         <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-          在庫数と「買い足し可」を管理します。買い足し可にすると、在庫が0でもレシピ提案で選択できます。
+          在庫数と「買い足し可」を管理します。レシピを書くときの材料名の候補にも使われます。
         </p>
       </div>
 
@@ -157,7 +152,6 @@ export default function IngredientsPage() {
         </label>
         <button
           type="submit"
-          disabled={submitting}
           className="rounded-full bg-emerald-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
         >
           追加する

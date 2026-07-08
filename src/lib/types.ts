@@ -15,7 +15,6 @@ export const CATEGORY_LABELS: Record<IngredientCategory, string> = {
   SEASONING: "調味料",
 };
 
-// 食材選択画面（レシピ提案）に表示するカテゴリ。調味料は常に全て利用可能なため表示しない
 export const FOOD_CATEGORIES: IngredientCategory[] = [
   "VEGETABLE",
   "FRUIT",
@@ -44,45 +43,19 @@ export interface RecipeIngredientItem {
   amount: string;
 }
 
-// 1人分の目安の栄養成分
-export interface NutritionInfo {
-  calories: number; // エネルギー (kcal)
-  protein: number; // たんぱく質 (g)
-  fat: number; // 脂質 (g)
-  carbohydrates: number; // 炭水化物 (g)
-  salt: number; // 食塩相当量 (g)
-}
-
-export const NUTRITION_LABELS: Record<keyof NutritionInfo, string> = {
-  calories: "エネルギー",
-  protein: "たんぱく質",
-  fat: "脂質",
-  carbohydrates: "炭水化物",
-  salt: "食塩相当量",
-};
-
-export const NUTRITION_UNITS: Record<keyof NutritionInfo, string> = {
-  calories: "kcal",
-  protein: "g",
-  fat: "g",
-  carbohydrates: "g",
-  salt: "g",
-};
-
 export interface Recipe {
   id: string;
   title: string;
+  // 食材（調味料は含まない）
   ingredients: RecipeIngredientItem[];
+  // 調味料
+  seasonings: RecipeIngredientItem[];
+  // 作り方。1工程ごとに1要素（表示時に1. 2. 3. ...と採番される）
+  steps: string[];
+  // 検索用に食材・調味料の名前だけを平坦化した配列
   ingredientNames: string[];
-  instructions: string;
-  nutrition: NutritionInfo;
-  cookedAt: string;
+  // 作った（または記録したい）日付。複数指定可。カレンダー表示のキー
+  cookedDates: string[];
   createdAt: string;
-}
-
-export interface SuggestedRecipe {
-  title: string;
-  ingredients: RecipeIngredientItem[];
-  instructions: string;
-  nutrition: NutritionInfo;
+  updatedAt: string;
 }

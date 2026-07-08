@@ -8,22 +8,22 @@ const CARDS = [
     description: "自宅にある食材や調味料、在庫数、買い足し可否を管理します。",
   },
   {
-    href: "/suggest",
-    icon: "✨",
-    title: "レシピを提案してもらう",
-    description: "在庫のある食材から、Claudeが献立を1品考案します。",
+    href: "/recipes/new",
+    icon: "📝",
+    title: "レシピを書く",
+    description: "自分で考えたレシピをエディタで記録し、使った材料をタグ付けします。",
   },
   {
     href: "/library",
     icon: "📚",
     title: "レシピライブラリ",
-    description: "実際に作ったレシピを保存し、食材から検索できます。",
+    description: "書きためたレシピを保存し、使用した食材から検索できます。",
   },
   {
     href: "/calendar",
     icon: "📅",
     title: "カレンダー",
-    description: "過去に作った料理をカレンダーから振り返れます。",
+    description: "作った料理をカレンダーから振り返れます。",
   },
 ];
 
@@ -35,7 +35,7 @@ export default function Home() {
           今日、何作ろう？
         </h1>
         <p className="mt-2 text-neutral-600 dark:text-neutral-400">
-          自宅にある食材から、Claudeがぴったりのレシピを提案します。
+          自宅の食材を管理しながら、自分だけのレシピノートを育てましょう。
         </p>
       </div>
 

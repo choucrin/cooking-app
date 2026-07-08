@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { signOut } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 
 const NAV_ITEMS = [
   { href: "/ingredients", label: "食材登録", icon: "🥕" },
-  { href: "/suggest", label: "レシピ提案", icon: "✨" },
+  { href: "/recipes/new", label: "レシピを書く", icon: "📝" },
   { href: "/library", label: "ライブラリ", icon: "📚" },
   { href: "/calendar", label: "カレンダー", icon: "📅" },
 ];
@@ -17,9 +19,8 @@ export default function NavBar() {
   if (pathname === "/login") return null;
 
   const handleLogout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
+    await signOut(auth);
     router.replace("/login");
-    router.refresh();
   };
 
   return (

@@ -1,43 +1,45 @@
-# APIキーの発行が有料だったためこのアプリのリリース計画は頓挫
+# 今日の献立 — 自分だけのレシピノート
 
-# 今日の献立 — 冷蔵庫の食材からレシピ提案アプリ
+自宅にある食材・調味料の在庫を管理しながら、自分で考えたレシピを工程ごとに記録できる Web アプリです。使った食材・調味料は登録済みの一覧から選んでタグ付けして保存しておくことで、あとから食材名で検索したり、カレンダーからいつ何を作ったか振り返ったりできます。
 
-自宅にある食材・調味料を登録しておくと、Claude（Anthropic API）がそれらを使ったレシピを提案してくれる Web アプリです。作ったレシピはライブラリに保存され、カレンダーからいつ何を作ったか振り返ることができます。
+> 以前のバージョンではClaude(Anthropic API)によるレシピ自動提案機能とVercel + PostgreSQLでの運用を想定していましたが、本バージョンではAI機能を廃止し、**GitHub Pages（静的ホスティング）+ Firebase（認証・データベース）** による構成に全面的に作り直しています。レシピは手動で執筆・登録する運用になりました。
 
 ## 主な機能
 
 | 機能 | 内容 |
 |---|---|
-| 食材・調味料の登録 | 「野菜」「果物」「肉」「卵・乳製品」「その他」「調味料」に分類して登録。在庫数と「買い足し可」フラグを管理 |
-| レシピ提案 | 在庫あり／買い足し可の食材から選択 → Claude API が料理名・材料と分量・具体的な手順・1人分の栄養成分（エネルギー・たんぱく質・脂質・炭水化物・食塩相当量）を提案（調味料は登録済みのものが自動的にすべて使用可能） |
-| レシピライブラリ | 「作った」を選んだレシピを保存。使用食材で検索可能 |
-| カレンダー記録 | 「作った」を選ぶと当日の日付に自動記録。カレンダーから日付ジャンプで過去のレシピを閲覧 |
-| アクセス制限 | 共通パスワードによる簡易ログイン。URL を知っているだけの第三者が Claude API 利用枠を消費したりデータを閲覧・編集したりできないようにする |
+| 食材・調味料の登録 | 「野菜」「果物」「肉」「卵・乳製品」「その他」「調味料」に分類して登録。在庫数と「買い足し可」フラグを管理。同名の食材・調味料は重複登録できない |
+| レシピを書く | 料理名・作った日を記録し、使った「食材」「調味料」をそれぞれ別枠で登録済みの一覧から選択式で登録。材料入力欄に単語を打つと候補を絞り込める（一覧にないものは「その他」からその場で新規登録でき、食材管理にも自動で追加される。同名の重複登録は行われない）。作り方は1. 2. 3. ...と工程ごとに分けて記録できる |
+| レシピライブラリ | 書いたレシピを保存。料理名・食材名のテキスト検索に加え、登録済みの食材一覧から選んで絞り込む検索もできる。「作った日」はレシピごとに複数登録・削除でき、内容の閲覧・編集・削除も可能 |
+| カレンダー記録 | レシピに登録された「作った日」（複数可）を基準に、カレンダーの該当日すべてにレシピが表示される。日付をクリックしてその日のレシピにジャンプできる |
+| ログイン | Firebase Authentication（メール/パスワード）による認証。サインアップ画面は用意していないため、利用者はFirebase Console側で管理者が作成する想定 |
 
 ## 技術スタック
 
-- **Next.js 16 (App Router) + TypeScript** — フロントエンド／APIルート共通
+- **Next.js 16 (App Router) + TypeScript** — `output: "export"` による完全な静的サイト生成
 - **Tailwind CSS v4** — スタイリング
-- **Prisma 7 + PostgreSQL** — データ永続化（`@prisma/adapter-pg` 経由）
-- **Anthropic SDK (`@anthropic-ai/sdk`)** — レシピ提案（Claude API, tool use による構造化出力）
-- **Vercel** — ホスティング想定
+- **Firebase Authentication** — ログイン機能
+- **Cloud Firestore** — 食材・レシピデータの保存（リアルタイム同期）
+- **GitHub Pages + GitHub Actions** — ホスティングと自動デプロイ
 
-## データベースについて（提案）
+## アーキテクチャと認証まわりの考え方
 
-iPhone / Windows の両方から同じデータを見られる必要があるため、**ローカルストレージではなくクラウド上の共有 DB** が必須です。個人利用規模のデータ量（食材マスタ＋レシピ履歴）であれば、以下のいずれかの「サーバーレス PostgreSQL」が最適です。いずれも無料枠があり、Vercel との相性が良いものを選んでいます。
+このアプリは**完全な静的サイト**としてビルドされ、サーバーサイドのAPIやミドルウェアは一切持ちません（GitHub PagesはHTML/CSS/JSを配信するだけのホスティングのため、サーバーサイド処理ができません）。そのため：
 
-- **Vercel Postgres (Neon)**［推奨］— Vercel ダッシュボードから数クリックで作成でき、環境変数が自動連携される
-- **Neon** を直接使う — Vercel 連携なしで単体利用も可能。無料枠が大きい
-- **Supabase** — 将来的にユーザー認証や画像アップロードを追加したくなった場合に拡張しやすい
+- 全データの読み書きは、ブラウザから直接 Firebase（Authentication / Firestore）へアクセスする形になります。
+- ログインしていないユーザーを `/login` へリダイレクトする処理はアプリのJavaScript（クライアントサイド）で行っていますが、これは**あくまでUX上の制御**です。実際のアクセス制御（第三者にデータを読み書きされないようにする本当の防御線）は **Firestore セキュリティルール（`firestore.rules`）+ Firebase Authentication** が担っています。
+- `firestore.rules` はログイン済みユーザー（`request.auth != null`）のみ読み書きを許可する設定にしてあります。Firebase Console の Firestore → ルール タブに貼り付けてデプロイしてください。
 
-本アプリは Prisma の driver adapters（`@prisma/adapter-pg`）を使っており、標準的な `postgres://` 接続文字列であればどのサービスでも動作します。迷ったら **Vercel Postgres (Neon)** を選んでください。
+### データモデル（Firestore）
 
-### スキーマ概要（`prisma/schema.prisma`）
-
-- `Ingredient` — 食材・調味料マスタ（`category`, `stock`, `canBuy`）
-- `Recipe` — 保存済みレシピ（材料は `Json` で保存し、検索用に `ingredientNames: String[]` を別途保持。`cookedAt` が作った日付＝カレンダーのキー）
-
-Claude が都度提案するレシピ（保存前）は DB に保存せず、ユーザーが「作った」を選んだ時点で初めて `Recipe` として永続化します。
+- `ingredients` コレクション — `{ name, category, stock, canBuy, createdAt, updatedAt }`
+  - 同名（大文字・小文字を区別しない）の食材・調味料は登録できない
+  - レシピ作成画面で「その他」から新規の食材・調味料名を入力すると、保存時にここへ自動追加される（`category` は食材なら `OTHER`、調味料なら `SEASONING` で仮登録され、在庫数などは後から食材管理画面で調整できる。既存と同名の場合は追加登録されず既存のものが使われる）
+- `recipes` コレクション — `{ title, ingredients: [{name, amount}], seasonings: [{name, amount}], steps: string[], ingredientNames: string[], cookedDates: Timestamp[], createdAt, updatedAt }`
+  - `ingredients` は食材、`seasonings` は調味料（別枠で登録）
+  - `steps` は作り方を工程ごとに分けた配列（表示時に1. 2. 3. ...と自動採番される）
+  - `ingredientNames` は検索用に食材・調味料の名前だけを平坦化した配列
+  - `cookedDates` は「作った日」の配列（複数可）。カレンダー表示ではこの配列に含まれる全ての日付にレシピが表示される。ライブラリ画面から追加・削除できる
 
 ---
 
@@ -46,97 +48,84 @@ Claude が都度提案するレシピ（保存前）は DB に保存せず、ユ
 ### 1. 前提
 
 - Node.js 20 以上
-- PostgreSQL データベース（後述の「データベースについて」を参照）
-- Anthropic の API キー（後述）
+- GitHubアカウント（GitHub Pagesでの公開に使用）
+- Firebaseアカウント（無料のSparkプランで動作します）
 
-### 2. 依存関係のインストール
+### 2. Firebaseプロジェクトの準備
+
+1. [Firebase Console](https://console.firebase.google.com/) で新しいプロジェクトを作成
+2. **Authentication** → 「Sign-in method」で **メール/パスワード** プロバイダを有効化
+3. **Authentication** → 「Users」タブから、利用する家族・自分のメールアドレスでユーザーを手動作成（サインアップ画面は用意していないため、ここで作成したアカウントでのみログインできます）
+4. **Firestore Database** を作成（本番モードで作成してOK。アクセス制御は後述のセキュリティルールで行います）
+5. プロジェクトの設定 → 全般 → 「マイアプリ」から **ウェブアプリを追加**し、表示される `firebaseConfig` の値（`apiKey` 等）を控えておく
+6. Firestore → ルール タブに、リポジトリ内の `firestore.rules` の内容を貼り付けて公開（または [Firebase CLI](https://firebase.google.com/docs/cli) を導入済みなら `firebase deploy --only firestore:rules` でも可）
+
+### 3. ローカル開発環境
 
 ```bash
 npm install
-```
-
-（`postinstall` で `prisma generate` が自動実行されます）
-
-### 3. 環境変数の設定
-
-`.env.example` をコピーして `.env.local` を作成します。
-
-```bash
 cp .env.example .env.local
 ```
 
-`.env.local` の中身：
+`.env.local` に、手順2-5で控えた値を設定します。
 
 ```
-DATABASE_URL="postgres://user:password@host:5432/dbname?sslmode=require"
-ANTHROPIC_API_KEY="sk-ant-xxxxxxxx"
-ANTHROPIC_MODEL="claude-sonnet-5"
-APP_PASSWORD="好きなパスワードを設定"
+NEXT_PUBLIC_FIREBASE_API_KEY="..."
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="..."
+NEXT_PUBLIC_FIREBASE_PROJECT_ID="..."
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="..."
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="..."
+NEXT_PUBLIC_FIREBASE_APP_ID="..."
 ```
 
-#### `DATABASE_URL` の取得方法（Vercel Postgres / Neon の例）
-
-1. [Vercel ダッシュボード](https://vercel.com/dashboard) → 対象プロジェクト → **Storage** タブ → **Create Database** → **Postgres (Neon)** を選択
-2. 作成後に表示される接続情報から `DATABASE_URL`（`postgres://...` 形式、`sslmode=require` 付き）をコピー
-3. ローカル開発用に `.env.local` に貼り付け（本番用は後述の「Vercelへのデプロイ」でVercel側に設定します）
-
-#### `ANTHROPIC_API_KEY` の取得方法
-
-1. [Anthropic Console](https://console.anthropic.com/) にログイン（アカウントがなければ作成）
-2. 左メニューの **API Keys** から **Create Key** を選択し、キーを発行
-3. 発行したキーを `.env.local` の `ANTHROPIC_API_KEY` に貼り付け
-
-利用するモデルは `ANTHROPIC_MODEL` で切り替えられます（未設定時は `claude-sonnet-5`）。Anthropic Console の Billing 設定でクレジットを追加しておく必要があります。
-
-#### `APP_PASSWORD`（アクセス制限）について
-
-このアプリは URL さえ知っていれば誰でもアクセスできてしまうため、`APP_PASSWORD` に十分に推測されにくい文字列を設定してください。ログイン画面でこのパスワードを入力すると、以後30日間有効なセッションCookieが発行されます。
-
-- `src/proxy.ts`（Next.js の Proxy／旧 Middleware）が全ページ・全APIへのアクセスをチェックし、未ログインなら `/login` にリダイレクト（APIの場合は401を返却）します
-- **パスワードを変更すると、発行済みの全セッションが即座に無効化されます**（全端末で再ログインが必要になります）。第三者にパスワードが漏れた疑いがある場合は、`APP_PASSWORD` を変更して再デプロイしてください
-- 追加の安全策として、[Anthropic Console](https://console.anthropic.com/settings/limits) で API キーの使用上限（Spend Limit）を設定しておくことを推奨します
-
-### 4. データベースにテーブルを作成
-
-```bash
-npx prisma migrate deploy
-```
-
-`prisma/migrations` にあるマイグレーションが適用され、`Ingredient` / `Recipe` テーブルが作成されます。
-
-### 5. ローカルで起動
+これらは `NEXT_PUBLIC_` から始まる、ブラウザに公開される設定値です（機密情報ではありません。実際のアクセス制御はFirestoreセキュリティルール側で行われます）。
 
 ```bash
 npm run dev
 ```
 
-`http://localhost:3000` にアクセスして動作を確認してください。
+`http://localhost:3000` にアクセスし、手順2-3で作成したアカウントでログインして動作を確認してください。
+
+### 4. GitHub Pagesへのデプロイ
+
+1. このリポジトリをGitHubにpush
+2. リポジトリの **Settings → Pages** で、Source を **GitHub Actions** に設定
+3. **Settings → Secrets and variables → Actions** で、以下のRepository secretsを登録
+   - `NEXT_PUBLIC_FIREBASE_API_KEY`
+   - `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
+   - `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
+   - `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
+   - `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+   - `NEXT_PUBLIC_FIREBASE_APP_ID`
+4. `main` ブランチにpushすると `.github/workflows/deploy.yml` が自動的にビルド・デプロイします（手動実行したい場合はActionsタブから `workflow_dispatch` で実行可能）
+5. **重要:** Firebase Console → Authentication → Settings → 承認済みドメイン に、公開されるGitHub PagesのドメインURL(例: `<user>.github.io`)を追加してください。これを忘れると、本番環境でのログイン時に `auth/unauthorized-domain` エラーになります。
+
+デプロイ後、`https://<user>.github.io/<repo>/` でアプリにアクセスできます。
+
+#### サブパスについて
+
+GitHub Pagesのプロジェクトサイト（`<user>.github.io/<repo>/` 形式）で公開する場合、Next.jsのビルドに `NEXT_PUBLIC_BASE_PATH=/<repo>` が必要です。`.github/workflows/deploy.yml` では自動的にリポジトリ名を使って設定しているため、通常は何もする必要はありません。
+
+カスタムドメインや `<user>.github.io` リポジトリ本体（ユーザー/組織ルートサイト）で公開する場合は、`.github/workflows/deploy.yml` 内の `NEXT_PUBLIC_BASE_PATH` の行を削除するか空文字にしてください。
+
+### 5. テストモード（ログイン画面のスキップ）
+
+Firebaseの実プロジェクトをまだ用意していない場合や、ログイン操作を省いて画面・操作感だけを素早く確認したい場合のために、ログインゲートをスキップする「テストモード」を用意しています。
+
+```bash
+npm run build:test   # ログインバイパス版でビルド
+npm run serve        # out/ をローカル配信
+```
+
+`npm run build:test`（`scripts/build-test.mjs`）は、ビルド直前だけ `src/components/AuthGate.tsx` をログインバイパス版（`AuthGate.testmode.tsx`）に一時的に差し替えてビルドし、**ビルドの成功・失敗・Ctrl+Cによる中断を問わず必ず元のファイルに復元**します。テストモードでビルドすると、画面上部に「⚠ テストモード」というオレンジ色のバナーが表示され、ログインなしで全ページに直接アクセスできます（Firestoreへの実際の読み書きは、`.env.local` に設定した接続先が有効な場合のみ動作します）。
+
+このスクリプトを使わない通常の `npm run build`（本番デプロイもこちらを使用）では、`src/components/AuthGate.tsx` は常にログインバイパスを含まない本来の実装のままなので、テスト用のコードが本番ビルドに混入することはありません。
 
 ---
 
-## Vercel へのデプロイ
-
-1. **データベースを用意する**（上記「`DATABASE_URL` の取得方法」参照。まだ作っていなければ Vercel の Storage タブから作成すると、環境変数が自動でプロジェクトに紐づきます）
-2. **リポジトリを Vercel に接続する**（GitHub 等に push した上で Vercel の *Add New Project* からインポート、または `vercel` CLI を利用）
-3. **環境変数を設定する** — Vercel プロジェクトの **Settings → Environment Variables** で以下を登録（Production / Preview / Development すべてに設定推奨）
-   - `DATABASE_URL`（Storage 連携済みなら自動設定済み）
-   - `ANTHROPIC_API_KEY`
-   - `ANTHROPIC_MODEL`（任意、省略可）
-   - `APP_PASSWORD`（第三者による無断利用を防ぐための必須設定。上記「`APP_PASSWORD`（アクセス制限）について」を参照）
-4. **マイグレーションを本番 DB に適用する** — 初回デプロイ前後に、ローカルから本番 `DATABASE_URL` を指定して1回実行します
-   ```bash
-   DATABASE_URL="（本番の接続文字列）" npx prisma migrate deploy
-   ```
-   （`vercel env pull .env.production.local` で本番の環境変数を取得してから実行すると楽です）
-5. **デプロイ** — Git push で自動デプロイ、または `vercel --prod`
-
-以降、`prisma/schema.prisma` を変更した場合は `npx prisma migrate dev --name <変更内容>` でマイグレーションファイルを作成し、コミット後にデプロイ前後で本番 DB に対して `npx prisma migrate deploy` を実行してください。
-
 ## iPhone / Windows でのデータ共有について
 
-本アプリはクラウド DB を使う通常の Web アプリのため、**iPhone の Safari／Windows のブラウザどちらからアクセスしても同じデータ**を見ることができます（同一の Vercel URL を開くだけです）。特別なアプリインストールは不要ですが、iPhone では Safari の共有メニューから「ホーム画面に追加」するとアプリのように使えます。
-
-複数人・複数端末から同時に使う場合でも、DB が共有されているため登録した食材やレシピはすぐに反映されます。全ページ・全APIが `APP_PASSWORD` による共通パスワード認証で保護されているため、家族内など特定のメンバーだけで安全に共有できます（各端末で最初の1回だけログインすれば、以後30日間はログイン状態が保たれます）。
+Firebase（Authentication + Firestore）を使ったクラウド同期のため、iPhoneのSafari・WindowsのブラウザどちらからGitHub PagesのURLにアクセスしても、ログインすれば同じデータを見ることができます。Firestoreはリアルタイム同期のため、片方の端末で登録・編集した内容はほぼ即座にもう片方にも反映されます。iPhoneではSafariの共有メニューから「ホーム画面に追加」するとアプリのように使えます。
 
 ---
 
@@ -144,27 +133,31 @@ npm run dev
 
 ```
 src/
-  proxy.ts                    # 全ページ/APIの認証チェック（旧middleware）
   app/
-    page.tsx                 # トップページ
-    login/page.tsx           # ログイン画面
-    ingredients/page.tsx     # 食材・調味料登録画面
-    suggest/page.tsx         # レシピ提案画面
-    library/page.tsx         # レシピライブラリ画面
-    calendar/page.tsx        # カレンダー画面
-    api/
-      auth/                  # ログイン・ログアウトAPI
-      ingredients/           # 食材CRUD API
-      recipes/               # レシピ保存・検索・削除API
-      suggest/               # Claude APIを呼び出すレシピ提案API
+    page.tsx                     # トップページ
+    login/                       # ログイン画面（Firebase Auth）
+    ingredients/page.tsx         # 食材・調味料登録画面
+    recipes/new/                 # レシピ作成・編集画面
+    library/page.tsx             # レシピライブラリ画面（Suspenseラッパー）
+    library/LibraryView.tsx      # ライブラリ本体（検索・一覧・編集/削除）
+    library/pick-ingredients/    # 食材選択による検索画面
+    calendar/page.tsx            # カレンダー画面
+  components/
+    AuthGate.tsx                 # 未ログイン時のリダイレクト制御
+    NavBar.tsx                    # ナビゲーション・ログアウト
+    MaterialRowsEditor.tsx        # 食材/調味料の検索付き選択式行入力（＋その他で新規登録）
+    StepsEditor.tsx                # 作り方を工程ごとに入力するエディタ
+    RecipeDetail.tsx                # 食材・調味料・工程の表示（ライブラリ/カレンダー共通）
+    CookedDatesEditor.tsx           # 「作った日」を複数管理するUI（ライブラリで使用）
   lib/
-    prisma.ts                # Prisma Client（driver adapter設定）
-    anthropic.ts             # Anthropic Clientラッパー
-    auth.ts                  # セッショントークンの発行・検証
-    types.ts                 # 共通の型・カテゴリ定義
-prisma/
-  schema.prisma              # DBスキーマ定義
-  migrations/                # マイグレーション履歴
+    firebase.ts                   # Firebase初期化（Auth / Firestore）
+    AuthContext.tsx                # ログイン状態を配信するReact Context
+    useIngredients.ts               # 食材データのリアルタイム購読フック
+    useRecipes.ts                    # レシピデータのリアルタイム購読フック
+    types.ts                         # 共通の型・カテゴリ定義
+firestore.rules                   # Firestoreセキュリティルール
+firebase.json                      # Firebase CLI設定（ルールのデプロイ用）
+.github/workflows/deploy.yml       # GitHub Pages自動デプロイワークフロー
 ```
 
 ## 主なコマンド
@@ -172,8 +165,12 @@ prisma/
 | コマンド | 内容 |
 |---|---|
 | `npm run dev` | 開発サーバー起動 |
-| `npm run build` | 本番ビルド |
-| `npm run start` | 本番ビルドの起動（ローカル確認用） |
-| `npm run db:migrate` | 本番/検証DBへマイグレーション適用（`prisma migrate deploy`） |
-| `npm run db:studio` | Prisma Studio（DBの中身をGUIで確認） |
-| `npx prisma migrate dev --name <name>` | スキーマ変更時にマイグレーションファイルを作成 |
+| `npm run build` | 静的サイトのビルド（`out/` ディレクトリに出力） |
+| `npm run serve` | ビルド済みの `out/` を `serve` パッケージでローカル配信し、本番相当の静的ファイルを確認 |
+| `npm run lint` | ESLint実行 |
+
+## 今後の運用メモ
+
+- **ユーザーの追加/削除**: Firebase Console → Authentication → Users から行います（アプリ内にユーザー管理画面はありません）
+- **パスワードを忘れた場合**: Firebase Consoleから該当ユーザーのパスワードをリセットしてください
+- **データのバックアップ**: Firestoreはプロジェクトごとに自動でホスティングされますが、必要に応じて [Firestoreのエクスポート機能](https://firebase.google.com/docs/firestore/manage-data/export-import) の利用を検討してください
