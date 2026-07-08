@@ -12,15 +12,17 @@ import {
 import { db } from "@/lib/firebase";
 import { useIngredients } from "@/lib/useIngredients";
 import {
-  ALL_CATEGORIES,
-  CATEGORY_LABELS,
+  SEASONING_CATEGORY,
+  collectFoodCategories,
   type Ingredient,
   type IngredientCategory,
 } from "@/lib/types";
 
+const CUSTOM_CATEGORY_VALUE = "__custom__";
+
 const emptyForm = {
   name: "",
-  category: "VEGETABLE" as IngredientCategory,
+  category: "野菜" as IngredientCategory,
   stock: 1,
   canBuy: false,
 };
@@ -29,20 +31,34 @@ export default function IngredientsPage() {
   const { ingredients, loading } = useIngredients();
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [categoryMode, setCategoryMode] = useState<"select" | "custom">(
+    "select"
+  );
+
+  const allCategories = useMemo(
+    () => [...collectFoodCategories(ingredients), SEASONING_CATEGORY],
+    [ingredients]
+  );
 
   const grouped = useMemo(() => {
     const map = new Map<IngredientCategory, Ingredient[]>();
-    for (const c of ALL_CATEGORIES) map.set(c, []);
+    for (const c of allCategories) map.set(c, []);
     for (const ing of ingredients) {
+      if (!map.has(ing.category)) map.set(ing.category, []);
       map.get(ing.category)?.push(ing);
     }
     return map;
-  }, [ingredients]);
+  }, [ingredients, allCategories]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedName = form.name.trim();
+    const trimmedCategory = form.category.trim();
     if (!trimmedName) return;
+    if (!trimmedCategory) {
+      setError("ジャンルを入力してください");
+      return;
+    }
 
     const isDuplicate = ingredients.some(
       (i) => i.name.trim().toLowerCase() === trimmedName.toLowerCase()
@@ -53,15 +69,16 @@ export default function IngredientsPage() {
     }
 
     setError(null);
-    const { category, canBuy } = form;
+    const { canBuy } = form;
     const stock = Math.max(0, form.stock);
 
     // 保存の完了を待たずにフォームをリセットし、連続して登録できるようにする
-    setForm({ ...emptyForm, category });
+    setForm({ ...emptyForm, category: trimmedCategory });
+    setCategoryMode("select");
 
     addDoc(collection(db, "ingredients"), {
       name: trimmedName,
-      category,
+      category: trimmedCategory,
       stock,
       canBuy,
       createdAt: serverTimestamp(),
@@ -90,7 +107,7 @@ export default function IngredientsPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">食材・調味料の登録</h1>
         <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-          在庫数と「買い足し可」を管理します。レシピを書くときの材料名の候補にも使われます。
+          在庫数と「買い足し可」を管理します。レシピを書くときの材料名の候補にも使われます。ジャンルは一覧にないものを自由に追加できます。
         </p>
       </div>
 
@@ -109,23 +126,52 @@ export default function IngredientsPage() {
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-neutral-500">分類</label>
-          <select
-            value={form.category}
-            onChange={(e) =>
-              setForm((f) => ({
-                ...f,
-                category: e.target.value as IngredientCategory,
-              }))
-            }
-            className="rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-neutral-800"
-          >
-            {ALL_CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {CATEGORY_LABELS[c]}
+          <label className="text-xs font-medium text-neutral-500">ジャンル</label>
+          {categoryMode === "select" ? (
+            <select
+              value={form.category}
+              onChange={(e) => {
+                if (e.target.value === CUSTOM_CATEGORY_VALUE) {
+                  setCategoryMode("custom");
+                  setForm((f) => ({ ...f, category: "" }));
+                } else {
+                  setForm((f) => ({ ...f, category: e.target.value }));
+                }
+              }}
+              className="rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-neutral-800"
+            >
+              {allCategories.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+              <option value={CUSTOM_CATEGORY_VALUE}>
+                ＋ 新しいジャンルを追加
               </option>
-            ))}
-          </select>
+            </select>
+          ) : (
+            <div className="flex gap-1">
+              <input
+                value={form.category}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, category: e.target.value }))
+                }
+                placeholder="新しいジャンル名"
+                className="rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-neutral-800"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setCategoryMode("select");
+                  setForm((f) => ({ ...f, category: allCategories[0] }));
+                }}
+                className="whitespace-nowrap rounded-lg border border-black/10 px-2 text-xs text-neutral-500 dark:border-white/20"
+              >
+                一覧から選ぶ
+              </button>
+            </div>
+          )}
         </div>
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-neutral-500">在庫数</label>
@@ -168,12 +214,12 @@ export default function IngredientsPage() {
         <p className="text-sm text-neutral-500">読み込み中...</p>
       ) : (
         <div className="flex flex-col gap-6">
-          {ALL_CATEGORIES.map((category) => {
+          {allCategories.map((category) => {
             const items = grouped.get(category) ?? [];
             return (
               <section key={category}>
                 <h2 className="mb-2 text-sm font-semibold text-neutral-500">
-                  {CATEGORY_LABELS[category]}（{items.length}）
+                  {category}（{items.length}）
                 </h2>
                 {items.length === 0 ? (
                   <p className="text-sm text-neutral-400">未登録</p>
@@ -188,7 +234,7 @@ export default function IngredientsPage() {
                           {ing.name}
                         </span>
 
-                        {category !== "SEASONING" && (
+                        {category !== SEASONING_CATEGORY && (
                           <div className="flex items-center gap-1">
                             <button
                               type="button"
@@ -218,7 +264,7 @@ export default function IngredientsPage() {
                           </div>
                         )}
 
-                        {category !== "SEASONING" && (
+                        {category !== SEASONING_CATEGORY && (
                           <label className="flex items-center gap-1.5 text-xs text-neutral-600 dark:text-neutral-400">
                             <input
                               type="checkbox"

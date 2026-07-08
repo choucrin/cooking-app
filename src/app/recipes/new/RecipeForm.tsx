@@ -18,7 +18,7 @@ import MaterialRowsEditor, {
   type MaterialRow,
 } from "@/components/MaterialRowsEditor";
 import StepsEditor from "@/components/StepsEditor";
-import { CATEGORY_LABELS, FOOD_CATEGORIES } from "@/lib/types";
+import { SEASONING_CATEGORY, collectFoodCategories } from "@/lib/types";
 import type { RecipeIngredientItem } from "@/lib/types";
 
 function today(): string {
@@ -102,8 +102,8 @@ export default function RecipeForm() {
 
   const ingredientOptionGroups = useMemo(
     () =>
-      FOOD_CATEGORIES.map((cat) => ({
-        label: CATEGORY_LABELS[cat],
+      collectFoodCategories(allIngredients).map((cat) => ({
+        label: cat,
         names: allIngredients
           .filter((i) => i.category === cat)
           .map((i) => i.name),
@@ -114,9 +114,9 @@ export default function RecipeForm() {
   const seasoningOptionGroups = useMemo(
     () => [
       {
-        label: CATEGORY_LABELS.SEASONING,
+        label: SEASONING_CATEGORY,
         names: allIngredients
-          .filter((i) => i.category === "SEASONING")
+          .filter((i) => i.category === SEASONING_CATEGORY)
           .map((i) => i.name),
       },
     ],
@@ -162,7 +162,7 @@ export default function RecipeForm() {
         ...newFoodNames.map((name) =>
           addDoc(collection(db, "ingredients"), {
             name,
-            category: "OTHER",
+            category: "その他",
             stock: 0,
             canBuy: false,
             createdAt: serverTimestamp(),
@@ -172,7 +172,7 @@ export default function RecipeForm() {
         ...newSeasoningNames.map((name) =>
           addDoc(collection(db, "ingredients"), {
             name,
-            category: "SEASONING",
+            category: SEASONING_CATEGORY,
             stock: 0,
             canBuy: false,
             createdAt: serverTimestamp(),

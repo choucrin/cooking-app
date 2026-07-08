@@ -3,19 +3,32 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useIngredients } from "@/lib/useIngredients";
-import { ALL_CATEGORIES, CATEGORY_LABELS, type Ingredient, type IngredientCategory } from "@/lib/types";
+import {
+  SEASONING_CATEGORY,
+  collectFoodCategories,
+  type Ingredient,
+  type IngredientCategory,
+} from "@/lib/types";
 
 export default function PickIngredientsPage() {
   const router = useRouter();
   const { ingredients, loading } = useIngredients();
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
+  const allCategories = useMemo(
+    () => [...collectFoodCategories(ingredients), SEASONING_CATEGORY],
+    [ingredients]
+  );
+
   const grouped = useMemo(() => {
     const map = new Map<IngredientCategory, Ingredient[]>();
-    for (const c of ALL_CATEGORIES) map.set(c, []);
-    for (const ing of ingredients) map.get(ing.category)?.push(ing);
+    for (const c of allCategories) map.set(c, []);
+    for (const ing of ingredients) {
+      if (!map.has(ing.category)) map.set(ing.category, []);
+      map.get(ing.category)?.push(ing);
+    }
     return map;
-  }, [ingredients]);
+  }, [ingredients, allCategories]);
 
   const toggle = (name: string) => {
     setSelected((prev) => {
@@ -52,13 +65,13 @@ export default function PickIngredientsPage() {
         </p>
       ) : (
         <div className="flex flex-col gap-6">
-          {ALL_CATEGORIES.map((category) => {
+          {allCategories.map((category) => {
             const items = grouped.get(category) ?? [];
             if (items.length === 0) return null;
             return (
               <section key={category}>
                 <h2 className="mb-2 text-sm font-semibold text-neutral-500">
-                  {CATEGORY_LABELS[category]}
+                  {category}
                 </h2>
                 <div className="flex flex-wrap gap-2">
                   {items.map((ing) => {

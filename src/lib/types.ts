@@ -1,32 +1,33 @@
-export type IngredientCategory =
-  | "VEGETABLE"
-  | "FRUIT"
-  | "MEAT"
-  | "DAIRY_EGG"
-  | "OTHER"
-  | "SEASONING";
+// ジャンルは固定の列挙型ではなく自由入力の文字列。値そのものが表示ラベルになる
+// （例: "野菜", "肉", ユーザーが追加した任意のジャンル名）。
+export type IngredientCategory = string;
 
-export const CATEGORY_LABELS: Record<IngredientCategory, string> = {
-  VEGETABLE: "野菜",
-  FRUIT: "果物",
-  MEAT: "肉",
-  DAIRY_EGG: "卵・乳製品",
-  OTHER: "その他",
-  SEASONING: "調味料",
-};
+// 「調味料」だけは特別扱い（在庫/買い足し可を持たず、レシピ作成画面でも別枠になる）
+export const SEASONING_CATEGORY = "調味料";
 
-export const FOOD_CATEGORIES: IngredientCategory[] = [
-  "VEGETABLE",
-  "FRUIT",
-  "MEAT",
-  "DAIRY_EGG",
-  "OTHER",
+// 新規インストール時など、食材が1件も登録されていなくても最初から選べるジャンル。
+// ここにない値も、食材登録画面からユーザーが自由に追加できる。
+export const DEFAULT_FOOD_CATEGORIES: IngredientCategory[] = [
+  "野菜",
+  "果物",
+  "肉",
+  "卵・乳製品",
+  "その他",
 ];
 
-export const ALL_CATEGORIES: IngredientCategory[] = [
-  ...FOOD_CATEGORIES,
-  "SEASONING",
-];
+/**
+ * 現在登録されている食材から、実際に使われている食材ジャンル（調味料を除く）を集める。
+ * デフォルトのジャンルを先頭に、ユーザーが追加した独自ジャンルを登場順で後ろに続ける。
+ */
+export function collectFoodCategories(
+  ingredients: Pick<Ingredient, "category">[]
+): IngredientCategory[] {
+  const set = new Set<IngredientCategory>(DEFAULT_FOOD_CATEGORIES);
+  for (const i of ingredients) {
+    if (i.category !== SEASONING_CATEGORY) set.add(i.category);
+  }
+  return Array.from(set);
+}
 
 export interface Ingredient {
   id: string;
