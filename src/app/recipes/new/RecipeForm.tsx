@@ -56,7 +56,8 @@ export default function RecipeForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("id");
-  const { ingredients: allIngredients } = useIngredients();
+  const { ingredients: allIngredients, loading: ingredientsLoading } =
+    useIngredients();
 
   const [title, setTitle] = useState("");
   const [ingredientRows, setIngredientRows] = useState<MaterialRow[]>([
@@ -80,6 +81,9 @@ export default function RecipeForm() {
 
   useEffect(() => {
     if (!editId) return;
+    // 食材一覧の読み込みが終わる前だとknownNamesが空になり、既存の材料まで
+    // 「その他（新規登録）」扱いになってしまうため、読み込み完了を待つ
+    if (ingredientsLoading) return;
     (async () => {
       const snap = await getDoc(doc(db, "recipes", editId));
       if (snap.exists()) {
@@ -111,9 +115,10 @@ export default function RecipeForm() {
       }
       setLoadingExisting(false);
     })();
-    // 初回読み込み時のみ実行（allIngredientsの変動で再取得したくないため）
+    // 食材一覧の読み込み完了後に1度だけ実行（以後allIngredientsが更新されても
+    // 再取得はしない。編集中の入力内容を上書きしてしまうため）
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editId]);
+  }, [editId, ingredientsLoading]);
 
   const foodCategoryOptions = useMemo(
     () => collectFoodCategories(allIngredients),
