@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import { normalizePathname } from "@/lib/paths";
 
 const NAV_ITEMS = [
   { href: "/ingredients", label: "食材登録", icon: "🥕" },
@@ -13,7 +14,7 @@ const NAV_ITEMS = [
 ];
 
 export default function NavBar() {
-  const pathname = usePathname();
+  const pathname = normalizePathname(usePathname());
   const router = useRouter();
 
   if (pathname === "/login") return null;

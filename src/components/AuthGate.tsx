@@ -3,20 +3,22 @@
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
+import { normalizePathname } from "@/lib/paths";
 
 export default function AuthGate({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
-  const pathname = usePathname();
+  const pathname = normalizePathname(usePathname());
   const router = useRouter();
+  const isLoginPage = pathname === "/login";
 
   useEffect(() => {
     if (loading) return;
-    if (!user && pathname !== "/login") {
-      router.replace(`/login?redirect=${encodeURIComponent(pathname ?? "/")}`);
-    } else if (user && pathname === "/login") {
+    if (!user && !isLoginPage) {
+      router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
+    } else if (user && isLoginPage) {
       router.replace("/");
     }
-  }, [user, loading, pathname, router]);
+  }, [user, loading, isLoginPage, pathname, router]);
 
   if (loading) {
     return (
@@ -26,7 +28,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!user && pathname !== "/login") {
+  if (!user && !isLoginPage) {
     return null;
   }
 
