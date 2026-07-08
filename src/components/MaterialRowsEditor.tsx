@@ -74,6 +74,7 @@ function MaterialCombobox({
       options: g.options.filter(matches),
     }))
     .filter((g) => g.options.length > 0);
+  const flatOptions = filteredGroups.flatMap((g) => g.options);
 
   const cancelBlur = () => {
     if (blurTimeout.current) {
@@ -102,6 +103,15 @@ function MaterialCombobox({
     setOpen(false);
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== "Enter") return;
+    // フォーム全体の送信を防ぎつつ、候補が1件に絞られていればそれを確定させる
+    e.preventDefault();
+    if (q && flatOptions.length === 1) {
+      handlePick(flatOptions[0].name);
+    }
+  };
+
   return (
     <div className="relative min-w-[140px] flex-1">
       <input
@@ -112,6 +122,7 @@ function MaterialCombobox({
         }}
         onFocus={() => setOpen(true)}
         onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
         placeholder="材料名で検索"
         className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-neutral-900"
       />
