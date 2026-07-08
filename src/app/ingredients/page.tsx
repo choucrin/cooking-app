@@ -32,35 +32,6 @@ const emptyForm = {
   canBuy: false,
 };
 
-// 登録済みの食材にあとからよみがなを追加・修正できるようにするための入力欄
-function ReadingInlineEditor({
-  ingredient,
-  onCommit,
-}: {
-  ingredient: Ingredient;
-  onCommit: (reading: string) => void;
-}) {
-  const [value, setValue] = useState(ingredient.reading);
-  const [prevReading, setPrevReading] = useState(ingredient.reading);
-  if (ingredient.reading !== prevReading) {
-    setPrevReading(ingredient.reading);
-    setValue(ingredient.reading);
-  }
-
-  return (
-    <input
-      value={value}
-      onChange={(e) => setValue(e.target.value)}
-      onBlur={() => {
-        const trimmed = value.trim();
-        if (trimmed !== ingredient.reading) onCommit(trimmed);
-      }}
-      placeholder="よみがな"
-      className="w-24 rounded-lg border border-black/10 px-2 py-1 text-xs dark:border-white/10 dark:bg-neutral-800"
-    />
-  );
-}
-
 export default function IngredientsPage() {
   const { ingredients, loading } = useIngredients();
   const [error, setError] = useState<string | null>(null);
@@ -133,7 +104,7 @@ export default function IngredientsPage() {
 
   const updateIngredient = async (
     id: string,
-    data: Partial<Pick<Ingredient, "stock" | "canBuy" | "reading">>
+    data: Partial<Pick<Ingredient, "stock" | "canBuy">>
   ) => {
     await updateDoc(doc(db, "ingredients", id), {
       ...data,
@@ -299,14 +270,13 @@ export default function IngredientsPage() {
                         key={ing.id}
                         className="flex flex-wrap items-center gap-3 rounded-xl border border-black/10 bg-white px-4 py-3 shadow-sm dark:border-white/10 dark:bg-neutral-900"
                       >
-                        <div className="flex min-w-[80px] flex-1 flex-col gap-1">
+                        <div className="flex min-w-[80px] flex-1 flex-col">
                           <span className="font-medium">{ing.name}</span>
-                          <ReadingInlineEditor
-                            ingredient={ing}
-                            onCommit={(reading) =>
-                              updateIngredient(ing.id, { reading })
-                            }
-                          />
+                          {ing.reading && (
+                            <span className="text-xs text-neutral-400">
+                              {ing.reading}
+                            </span>
+                          )}
                         </div>
 
                         {category !== SEASONING_CATEGORY && (
