@@ -1,16 +1,22 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { normalizeForSearch } from "@/lib/kana";
+import { katakanaToHiragana, normalizeForSearch } from "@/lib/kana";
+
+// 漢字を含む名前は正しく読めないため自動提案しない（カタカナ・ひらがなのみ変換）
+const CJK_IDEOGRAPH = /[一-龯]/;
 
 export interface MaterialRow {
   mode: "select" | "custom";
   name: string;
   amount: string;
+  // 「その他」で新規入力中、IME変換で漢字になる直前の最後のひらがな状態。
+  // その場で新規登録する食材のよみがなとして使う
+  readingHint?: string;
 }
 
 export function emptyMaterialRow(): MaterialRow {
-  return { mode: "select", name: "", amount: "" };
+  return { mode: "select", name: "", amount: "", readingHint: "" };
 }
 
 export interface MaterialOption {
@@ -187,7 +193,18 @@ export default function MaterialRowsEditor({
             <div className="flex min-w-[140px] flex-1 gap-1">
               <input
                 value={row.name}
-                onChange={(e) => updateRow(index, { name: e.target.value })}
+                onChange={(e) => {
+                  const name = e.target.value;
+                  if (CJK_IDEOGRAPH.test(name)) {
+                    // 変換直後で漢字になった場合は、変換前の最後のひらがな状態を保持する
+                    updateRow(index, { name });
+                  } else {
+                    updateRow(index, {
+                      name,
+                      readingHint: katakanaToHiragana(name),
+                    });
+                  }
+                }}
                 placeholder={namePlaceholder}
                 className="flex-1 rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-neutral-900"
               />

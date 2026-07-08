@@ -20,16 +20,9 @@ import MaterialRowsEditor, {
 import StepsEditor from "@/components/StepsEditor";
 import { SEASONING_CATEGORY, collectFoodCategories } from "@/lib/types";
 import type { RecipeIngredientItem } from "@/lib/types";
-import { katakanaToHiragana } from "@/lib/kana";
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
-}
-
-// 漢字を含む名前は正しく読めないため自動提案しない（カタカナ・ひらがなのみ変換）
-const CJK_IDEOGRAPH = /[一-龯]/;
-function suggestReading(name: string): string {
-  return CJK_IDEOGRAPH.test(name) ? "" : katakanaToHiragana(name);
 }
 
 function toMaterialRows(
@@ -148,9 +141,11 @@ export default function RecipeForm() {
       const existingNamesLower = new Set(
         allIngredients.map((i) => i.name.trim().toLowerCase())
       );
-      const pickNewNames = (materialRows: MaterialRow[]): string[] => {
+      const pickNewNames = (
+        materialRows: MaterialRow[]
+      ): { name: string; reading: string }[] => {
         const seen = new Set<string>();
-        const result: string[] = [];
+        const result: { name: string; reading: string }[] = [];
         for (const r of materialRows) {
           if (r.mode !== "custom") continue;
           const trimmed = r.name.trim();
@@ -158,30 +153,30 @@ export default function RecipeForm() {
           const lower = trimmed.toLowerCase();
           if (existingNamesLower.has(lower) || seen.has(lower)) continue;
           seen.add(lower);
-          result.push(trimmed);
+          result.push({ name: trimmed, reading: (r.readingHint ?? "").trim() });
         }
         return result;
       };
-      const newFoodNames = pickNewNames(ingredientRows);
-      const newSeasoningNames = pickNewNames(seasoningRows);
+      const newFoodItems = pickNewNames(ingredientRows);
+      const newSeasoningItems = pickNewNames(seasoningRows);
 
       await Promise.all([
-        ...newFoodNames.map((name) =>
+        ...newFoodItems.map(({ name, reading }) =>
           addDoc(collection(db, "ingredients"), {
             name,
             category: "その他",
-            reading: suggestReading(name),
+            reading,
             stock: 0,
             canBuy: false,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
           })
         ),
-        ...newSeasoningNames.map((name) =>
+        ...newSeasoningItems.map(({ name, reading }) =>
           addDoc(collection(db, "ingredients"), {
             name,
             category: SEASONING_CATEGORY,
-            reading: suggestReading(name),
+            reading,
             stock: 0,
             canBuy: false,
             createdAt: serverTimestamp(),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   addDoc,
   collection,
@@ -23,9 +23,6 @@ const CUSTOM_CATEGORY_VALUE = "__custom__";
 
 // 漢字を含む名前は正しく読めないため自動提案しない（カタカナ・ひらがなのみ変換）
 const CJK_IDEOGRAPH = /[一-龯]/;
-function suggestReading(name: string): string {
-  return CJK_IDEOGRAPH.test(name) ? "" : katakanaToHiragana(name);
-}
 
 const emptyForm = {
   name: "",
@@ -73,6 +70,9 @@ export default function IngredientsPage() {
   );
   // よみを手動で編集したら、名前の変更に合わせた自動提案で上書きしないようにする
   const [readingTouched, setReadingTouched] = useState(false);
+  // IME変換中、漢字になる直前の最後のひらがな状態を保持しておく。
+  // 変換が完了して名前が漢字になった瞬間によみがなが空にならないようにするため。
+  const lastHiraganaRef = useRef("");
 
   const allCategories = useMemo(
     () => [...collectFoodCategories(ingredients), SEASONING_CATEGORY],
@@ -116,6 +116,7 @@ export default function IngredientsPage() {
     setForm({ ...emptyForm, category: trimmedCategory });
     setCategoryMode("select");
     setReadingTouched(false);
+    lastHiraganaRef.current = "";
 
     addDoc(collection(db, "ingredients"), {
       name: trimmedName,
@@ -163,11 +164,16 @@ export default function IngredientsPage() {
             value={form.name}
             onChange={(e) => {
               const name = e.target.value;
-              setForm((f) => ({
-                ...f,
-                name,
-                reading: readingTouched ? f.reading : suggestReading(name),
-              }));
+              setForm((f) => {
+                if (readingTouched) return { ...f, name };
+                if (CJK_IDEOGRAPH.test(name)) {
+                  // 変換直後で漢字になった場合は、変換前の最後のひらがな状態を採用する
+                  return { ...f, name, reading: lastHiraganaRef.current };
+                }
+                const hira = katakanaToHiragana(name);
+                lastHiraganaRef.current = hira;
+                return { ...f, name, reading: hira };
+              });
             }}
             placeholder="例: 玉ねぎ"
             className="rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-neutral-800"
