@@ -33,6 +33,8 @@ export interface Ingredient {
   id: string;
   name: string;
   category: IngredientCategory;
+  // よみがな（ひらがな）。レシピ作成画面でひらがな入力から検索できるようにするための任意項目
+  reading: string;
   stock: number;
   canBuy: boolean;
   createdAt: string;

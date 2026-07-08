@@ -45,6 +45,7 @@ export function useIngredients() {
                 id: d.id,
                 name: data.name,
                 category: normalizeCategory(data.category),
+                reading: data.reading ?? "",
                 stock: data.stock ?? 0,
                 canBuy: data.canBuy ?? false,
                 createdAt: toIso(data.createdAt),

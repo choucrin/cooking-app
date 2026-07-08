@@ -17,15 +17,52 @@ import {
   type Ingredient,
   type IngredientCategory,
 } from "@/lib/types";
+import { katakanaToHiragana } from "@/lib/kana";
 
 const CUSTOM_CATEGORY_VALUE = "__custom__";
+
+// 漢字を含む名前は正しく読めないため自動提案しない（カタカナ・ひらがなのみ変換）
+const CJK_IDEOGRAPH = /[一-龯]/;
+function suggestReading(name: string): string {
+  return CJK_IDEOGRAPH.test(name) ? "" : katakanaToHiragana(name);
+}
 
 const emptyForm = {
   name: "",
   category: "野菜" as IngredientCategory,
+  reading: "",
   stock: 1,
   canBuy: false,
 };
+
+// 登録済みの食材にあとからよみがなを追加・修正できるようにするための入力欄
+function ReadingInlineEditor({
+  ingredient,
+  onCommit,
+}: {
+  ingredient: Ingredient;
+  onCommit: (reading: string) => void;
+}) {
+  const [value, setValue] = useState(ingredient.reading);
+  const [prevReading, setPrevReading] = useState(ingredient.reading);
+  if (ingredient.reading !== prevReading) {
+    setPrevReading(ingredient.reading);
+    setValue(ingredient.reading);
+  }
+
+  return (
+    <input
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={() => {
+        const trimmed = value.trim();
+        if (trimmed !== ingredient.reading) onCommit(trimmed);
+      }}
+      placeholder="よみがな"
+      className="w-24 rounded-lg border border-black/10 px-2 py-1 text-xs dark:border-white/10 dark:bg-neutral-800"
+    />
+  );
+}
 
 export default function IngredientsPage() {
   const { ingredients, loading } = useIngredients();
@@ -34,6 +71,8 @@ export default function IngredientsPage() {
   const [categoryMode, setCategoryMode] = useState<"select" | "custom">(
     "select"
   );
+  // よみを手動で編集したら、名前の変更に合わせた自動提案で上書きしないようにする
+  const [readingTouched, setReadingTouched] = useState(false);
 
   const allCategories = useMemo(
     () => [...collectFoodCategories(ingredients), SEASONING_CATEGORY],
@@ -71,14 +110,17 @@ export default function IngredientsPage() {
     setError(null);
     const { canBuy } = form;
     const stock = Math.max(0, form.stock);
+    const reading = form.reading.trim();
 
     // 保存の完了を待たずにフォームをリセットし、連続して登録できるようにする
     setForm({ ...emptyForm, category: trimmedCategory });
     setCategoryMode("select");
+    setReadingTouched(false);
 
     addDoc(collection(db, "ingredients"), {
       name: trimmedName,
       category: trimmedCategory,
+      reading,
       stock,
       canBuy,
       createdAt: serverTimestamp(),
@@ -90,7 +132,7 @@ export default function IngredientsPage() {
 
   const updateIngredient = async (
     id: string,
-    data: Partial<Pick<Ingredient, "stock" | "canBuy">>
+    data: Partial<Pick<Ingredient, "stock" | "canBuy" | "reading">>
   ) => {
     await updateDoc(doc(db, "ingredients", id), {
       ...data,
@@ -119,10 +161,31 @@ export default function IngredientsPage() {
           <label className="text-xs font-medium text-neutral-500">材料名</label>
           <input
             value={form.name}
-            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+            onChange={(e) => {
+              const name = e.target.value;
+              setForm((f) => ({
+                ...f,
+                name,
+                reading: readingTouched ? f.reading : suggestReading(name),
+              }));
+            }}
             placeholder="例: 玉ねぎ"
             className="rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-neutral-800"
             required
+          />
+        </div>
+        <div className="flex flex-1 flex-col gap-1 min-w-[120px]">
+          <label className="text-xs font-medium text-neutral-500">
+            よみがな（ひらがな）
+          </label>
+          <input
+            value={form.reading}
+            onChange={(e) => {
+              setReadingTouched(true);
+              setForm((f) => ({ ...f, reading: e.target.value }));
+            }}
+            placeholder="例: たまねぎ"
+            className="rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-neutral-800"
           />
         </div>
         <div className="flex flex-col gap-1">
@@ -230,9 +293,15 @@ export default function IngredientsPage() {
                         key={ing.id}
                         className="flex flex-wrap items-center gap-3 rounded-xl border border-black/10 bg-white px-4 py-3 shadow-sm dark:border-white/10 dark:bg-neutral-900"
                       >
-                        <span className="min-w-[80px] flex-1 font-medium">
-                          {ing.name}
-                        </span>
+                        <div className="flex min-w-[80px] flex-1 flex-col gap-1">
+                          <span className="font-medium">{ing.name}</span>
+                          <ReadingInlineEditor
+                            ingredient={ing}
+                            onCommit={(reading) =>
+                              updateIngredient(ing.id, { reading })
+                            }
+                          />
+                        </div>
 
                         {category !== SEASONING_CATEGORY && (
                           <div className="flex items-center gap-1">

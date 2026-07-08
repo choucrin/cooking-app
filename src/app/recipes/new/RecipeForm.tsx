@@ -20,9 +20,16 @@ import MaterialRowsEditor, {
 import StepsEditor from "@/components/StepsEditor";
 import { SEASONING_CATEGORY, collectFoodCategories } from "@/lib/types";
 import type { RecipeIngredientItem } from "@/lib/types";
+import { katakanaToHiragana } from "@/lib/kana";
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+// 漢字を含む名前は正しく読めないため自動提案しない（カタカナ・ひらがなのみ変換）
+const CJK_IDEOGRAPH = /[一-龯]/;
+function suggestReading(name: string): string {
+  return CJK_IDEOGRAPH.test(name) ? "" : katakanaToHiragana(name);
 }
 
 function toMaterialRows(
@@ -104,9 +111,9 @@ export default function RecipeForm() {
     () =>
       collectFoodCategories(allIngredients).map((cat) => ({
         label: cat,
-        names: allIngredients
+        options: allIngredients
           .filter((i) => i.category === cat)
-          .map((i) => i.name),
+          .map((i) => ({ name: i.name, reading: i.reading })),
       })),
     [allIngredients]
   );
@@ -115,9 +122,9 @@ export default function RecipeForm() {
     () => [
       {
         label: SEASONING_CATEGORY,
-        names: allIngredients
+        options: allIngredients
           .filter((i) => i.category === SEASONING_CATEGORY)
-          .map((i) => i.name),
+          .map((i) => ({ name: i.name, reading: i.reading })),
       },
     ],
     [allIngredients]
@@ -163,6 +170,7 @@ export default function RecipeForm() {
           addDoc(collection(db, "ingredients"), {
             name,
             category: "その他",
+            reading: suggestReading(name),
             stock: 0,
             canBuy: false,
             createdAt: serverTimestamp(),
@@ -173,6 +181,7 @@ export default function RecipeForm() {
           addDoc(collection(db, "ingredients"), {
             name,
             category: SEASONING_CATEGORY,
+            reading: suggestReading(name),
             stock: 0,
             canBuy: false,
             createdAt: serverTimestamp(),

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { normalizeForSearch } from "@/lib/kana";
 
 export interface MaterialRow {
   mode: "select" | "custom";
@@ -12,9 +13,15 @@ export function emptyMaterialRow(): MaterialRow {
   return { mode: "select", name: "", amount: "" };
 }
 
+export interface MaterialOption {
+  name: string;
+  // よみがな（ひらがな）。ひらがな入力で漢字・カタカナ名にヒットさせるための任意項目
+  reading?: string;
+}
+
 export interface MaterialOptionGroup {
   label: string;
-  names: string[];
+  options: MaterialOption[];
 }
 
 function MaterialCombobox({
@@ -46,13 +53,21 @@ function MaterialCombobox({
     };
   }, []);
 
-  const q = query.trim().toLowerCase();
+  const q = normalizeForSearch(query.trim());
+  const matches = (option: MaterialOption): boolean => {
+    if (!q) return true;
+    if (normalizeForSearch(option.name).includes(q)) return true;
+    if (option.reading && normalizeForSearch(option.reading).includes(q)) {
+      return true;
+    }
+    return false;
+  };
   const filteredGroups = optionGroups
     .map((g) => ({
       label: g.label,
-      names: q ? g.names.filter((n) => n.toLowerCase().includes(q)) : g.names,
+      options: g.options.filter(matches),
     }))
-    .filter((g) => g.names.length > 0);
+    .filter((g) => g.options.length > 0);
 
   const cancelBlur = () => {
     if (blurTimeout.current) {
@@ -108,15 +123,15 @@ function MaterialCombobox({
                   {group.label}
                 </p>
               )}
-              {group.names.map((name) => (
+              {group.options.map((option) => (
                 <button
-                  key={name}
+                  key={option.name}
                   type="button"
                   onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => handlePick(name)}
+                  onClick={() => handlePick(option.name)}
                   className="block w-full px-3 py-1.5 text-left text-sm hover:bg-emerald-50 dark:hover:bg-neutral-700"
                 >
-                  {name}
+                  {option.name}
                 </button>
               ))}
             </div>
