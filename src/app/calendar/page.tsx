@@ -23,6 +23,7 @@ export default function CalendarPage() {
   const { recipes, loading } = useRecipes();
   const [month, setMonth] = useState(() => startOfMonth(new Date()));
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [openId, setOpenId] = useState<string | null>(null);
 
   const recipesByDay = useMemo(() => {
     const map = new Map<string, typeof recipes>();
@@ -94,7 +95,10 @@ export default function CalendarPage() {
               <button
                 key={key}
                 type="button"
-                onClick={() => setSelectedDate(day)}
+                onClick={() => {
+                  setSelectedDate(day);
+                  setOpenId(null);
+                }}
                 className={`flex aspect-square flex-col items-center justify-center gap-0.5 rounded-lg text-sm transition ${
                   selected
                     ? "bg-emerald-600 text-white"
@@ -129,26 +133,43 @@ export default function CalendarPage() {
           </p>
         ) : (
           <ul className="flex flex-col gap-4">
-            {selectedRecipes.map((r) => (
-              <li
-                key={r.id}
-                className="border-t border-black/10 pt-4 first:border-0 first:pt-0 dark:border-white/10"
-              >
-                <div className="mb-2 flex items-center justify-between">
-                  <p className="font-semibold">{r.title}</p>
-                  <Link
-                    href={`/recipes/new?id=${r.id}`}
-                    className="text-xs text-neutral-500 hover:text-emerald-600"
+            {selectedRecipes.map((r) => {
+              const open = openId === r.id;
+              return (
+                <li
+                  key={r.id}
+                  className="border-t border-black/10 pt-4 first:border-0 first:pt-0 dark:border-white/10"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setOpenId(open ? null : r.id)}
+                    className="flex w-full items-center justify-between text-left"
                   >
-                    編集する
-                  </Link>
-                </div>
-                <p className="mb-2 text-xs text-neutral-500">
-                  {r.ingredientNames.join(", ")}
-                </p>
-                <RecipeDetail recipe={r} />
-              </li>
-            ))}
+                    <div>
+                      <p className="font-semibold">{r.title}</p>
+                      <p className="text-xs text-neutral-500">
+                        {r.ingredientNames.join(", ")}
+                      </p>
+                    </div>
+                    <span className="text-neutral-400">
+                      {open ? "▲" : "▼"}
+                    </span>
+                  </button>
+
+                  {open && (
+                    <div className="mt-3 flex flex-col gap-3">
+                      <RecipeDetail recipe={r} />
+                      <Link
+                        href={`/recipes/new?id=${r.id}`}
+                        className="self-start text-xs text-neutral-500 hover:text-emerald-600"
+                      >
+                        編集する
+                      </Link>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
