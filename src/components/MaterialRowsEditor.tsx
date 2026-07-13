@@ -123,10 +123,16 @@ function MaterialCombobox({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key !== "Enter") return;
-    // フォーム全体の送信を防ぎつつ、候補が1件に絞られていればそれを確定させる
-    e.preventDefault();
-    if (q && flatOptions.length === 1) {
+    if (e.key === "Enter") {
+      // フォーム全体の送信を防ぎつつ、候補が1件に絞られていればそれを確定させる
+      e.preventDefault();
+      if (q && flatOptions.length === 1) {
+        handlePick(flatOptions[0].name);
+      }
+      return;
+    }
+    if (e.key === "Tab" && open && q && flatOptions.length > 0) {
+      // Tabキーで一番上の候補を確定させる（preventDefaultはせず、通常通り次の項目へフォーカスも移す）
       handlePick(flatOptions[0].name);
     }
   };
