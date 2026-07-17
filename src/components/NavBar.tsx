@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { href: "/ingredients", label: "食材登録", icon: "🥕" },
   { href: "/recipes/new", label: "レシピを書く", icon: "📝" },
   { href: "/library", label: "ライブラリ", icon: "📚" },
+  { href: "/bookmarks", label: "ブックマーク", icon: "⭐" },
   { href: "/calendar", label: "カレンダー", icon: "📅" },
 ];
 

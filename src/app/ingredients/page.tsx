@@ -30,6 +30,7 @@ const emptyForm = {
   reading: "",
   stock: 1,
   canBuy: false,
+  buyQuantity: 1,
 };
 
 export default function IngredientsPage() {
@@ -81,6 +82,7 @@ export default function IngredientsPage() {
     setError(null);
     const { canBuy } = form;
     const stock = Math.max(0, form.stock);
+    const buyQuantity = Math.max(1, form.buyQuantity);
     const reading = form.reading.trim();
 
     // 保存の完了を待たずにフォームをリセットし、連続して登録できるようにする
@@ -95,6 +97,7 @@ export default function IngredientsPage() {
       reading,
       stock,
       canBuy,
+      buyQuantity,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     }).catch((err) => {
@@ -104,7 +107,7 @@ export default function IngredientsPage() {
 
   const updateIngredient = async (
     id: string,
-    data: Partial<Pick<Ingredient, "stock" | "canBuy">>
+    data: Partial<Pick<Ingredient, "stock" | "canBuy" | "buyQuantity">>
   ) => {
     await updateDoc(doc(db, "ingredients", id), {
       ...data,
@@ -121,7 +124,7 @@ export default function IngredientsPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">食材・調味料の登録</h1>
         <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-          在庫数と「買い足し可」を管理します。レシピを書くときの材料名の候補にも使われます。ジャンルは一覧にないものを自由に追加できます。
+          在庫数と「買い足し」を管理します。レシピを書くときの材料名の候補にも使われます。ジャンルは一覧にないものを自由に追加できます。
         </p>
       </div>
 
@@ -234,8 +237,27 @@ export default function IngredientsPage() {
             }
             className="h-4 w-4"
           />
-          買い足し可
+          買い足し
         </label>
+        {form.canBuy && (
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-neutral-500">
+              買い足し個数
+            </label>
+            <input
+              type="number"
+              min={1}
+              value={form.buyQuantity}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  buyQuantity: Number(e.target.value),
+                }))
+              }
+              className="w-20 rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-neutral-800"
+            />
+          </div>
+        )}
         <button
           type="submit"
           className="rounded-full bg-emerald-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
@@ -316,7 +338,27 @@ export default function IngredientsPage() {
                               }
                               className="h-3.5 w-3.5"
                             />
-                            買い足し可
+                            買い足し
+                          </label>
+                        )}
+
+                        {category !== SEASONING_CATEGORY && ing.canBuy && (
+                          <label className="flex items-center gap-1.5 text-xs text-neutral-600 dark:text-neutral-400">
+                            買い足し個数
+                            <input
+                              type="number"
+                              min={1}
+                              value={ing.buyQuantity}
+                              onChange={(e) =>
+                                updateIngredient(ing.id, {
+                                  buyQuantity: Math.max(
+                                    1,
+                                    Number(e.target.value)
+                                  ),
+                                })
+                              }
+                              className="w-14 rounded-lg border border-black/10 px-2 py-1 text-xs dark:border-white/10 dark:bg-neutral-800"
+                            />
                           </label>
                         )}
 

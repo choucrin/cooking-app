@@ -5,7 +5,7 @@ const CARDS = [
     href: "/ingredients",
     icon: "🥕",
     title: "食材・調味料を登録する",
-    description: "自宅にある食材や調味料、在庫数、買い足し可否を管理します。",
+    description: "自宅にある食材や調味料、在庫数、買い足しを管理します。",
   },
   {
     href: "/recipes/new",
@@ -18,6 +18,12 @@ const CARDS = [
     icon: "📚",
     title: "レシピライブラリ",
     description: "書きためたレシピを保存し、使用した食材から検索できます。",
+  },
+  {
+    href: "/bookmarks",
+    icon: "⭐",
+    title: "ブックマーク",
+    description: "☆を付けたお気に入りのレシピだけをすぐ確認できます。",
   },
   {
     href: "/calendar",

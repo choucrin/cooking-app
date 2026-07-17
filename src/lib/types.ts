@@ -36,7 +36,10 @@ export interface Ingredient {
   // よみがな（ひらがな）。レシピ作成画面でひらがな入力から検索できるようにするための任意項目
   reading: string;
   stock: number;
+  // 買い足しが必要かどうか
   canBuy: boolean;
+  // 買い足しが必要な個数（canBuyがtrueのときのみ意味を持つ）
+  buyQuantity: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -79,6 +82,8 @@ export interface Recipe {
   ingredientNames: string[];
   // 作った（または記録したい）日付。複数指定可。カレンダー表示のキー
   cookedDates: string[];
+  // ブックマーク（お気に入り）に登録されているか
+  bookmarked: boolean;
   createdAt: string;
   updatedAt: string;
 }

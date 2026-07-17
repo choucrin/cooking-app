@@ -50,6 +50,7 @@ export function useRecipes() {
                 cookedDates: cookedDates
                   .map((ts) => toIso(ts))
                   .sort((a, b) => b.localeCompare(a)),
+                bookmarked: data.bookmarked ?? false,
                 createdAt: toIso(data.createdAt),
                 updatedAt: toIso(data.updatedAt),
               } as Recipe;

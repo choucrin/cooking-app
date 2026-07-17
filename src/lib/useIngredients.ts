@@ -48,6 +48,7 @@ export function useIngredients() {
                 reading: data.reading ?? "",
                 stock: data.stock ?? 0,
                 canBuy: data.canBuy ?? false,
+                buyQuantity: data.buyQuantity ?? 1,
                 createdAt: toIso(data.createdAt),
                 updatedAt: toIso(data.updatedAt),
               } as Ingredient;

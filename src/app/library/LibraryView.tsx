@@ -3,11 +3,10 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { deleteDoc, doc } from "firebase/firestore";
+import { deleteDoc, doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useRecipes } from "@/lib/useRecipes";
-import RecipeDetail from "@/components/RecipeDetail";
-import CookedDatesEditor from "@/components/CookedDatesEditor";
+import RecipeListItem from "@/components/RecipeListItem";
 
 export default function LibraryView() {
   const router = useRouter();
@@ -52,6 +51,13 @@ export default function LibraryView() {
 
   const remove = async (id: string) => {
     await deleteDoc(doc(db, "recipes", id));
+  };
+
+  const toggleBookmark = async (id: string, next: boolean) => {
+    await updateDoc(doc(db, "recipes", id), {
+      bookmarked: next,
+      updatedAt: serverTimestamp(),
+    });
   };
 
   return (
@@ -110,62 +116,16 @@ export default function LibraryView() {
         </p>
       ) : (
         <ul className="flex flex-col gap-3">
-          {filtered.map((r) => {
-            const open = openId === r.id;
-            return (
-              <li
-                key={r.id}
-                className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-neutral-900"
-              >
-                <button
-                  type="button"
-                  onClick={() => setOpenId(open ? null : r.id)}
-                  className="flex w-full items-center justify-between text-left"
-                >
-                  <div>
-                    <p className="font-semibold">{r.title}</p>
-                    <p className="text-xs text-neutral-500">
-                      {r.cookedDates.length > 0
-                        ? new Date(r.cookedDates[0]).toLocaleDateString(
-                            "ja-JP"
-                          )
-                        : "日付未設定"}
-                      {r.cookedDates.length > 1 &&
-                        `（他${r.cookedDates.length - 1}件）`}
-                      {" ・ "}
-                      {r.ingredientNames.join(", ")}
-                    </p>
-                  </div>
-                  <span className="text-neutral-400">{open ? "▲" : "▼"}</span>
-                </button>
-
-                {open && (
-                  <div className="mt-4 flex flex-col gap-4 border-t border-black/10 pt-4 dark:border-white/10">
-                    <CookedDatesEditor
-                      recipeId={r.id}
-                      cookedDates={r.cookedDates}
-                    />
-                    <RecipeDetail recipe={r} />
-                    <div className="flex gap-3">
-                      <Link
-                        href={`/recipes/new?id=${r.id}`}
-                        className="text-xs text-neutral-500 hover:text-emerald-600"
-                      >
-                        編集する
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={() => remove(r.id)}
-                        className="text-xs text-neutral-400 hover:text-red-500"
-                      >
-                        ライブラリから削除
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </li>
-            );
-          })}
+          {filtered.map((r) => (
+            <RecipeListItem
+              key={r.id}
+              recipe={r}
+              open={openId === r.id}
+              onToggleOpen={() => setOpenId(openId === r.id ? null : r.id)}
+              onToggleBookmark={() => toggleBookmark(r.id, !r.bookmarked)}
+              onDelete={() => remove(r.id)}
+            />
+          ))}
         </ul>
       )}
     </div>
