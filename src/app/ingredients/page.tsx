@@ -326,23 +326,21 @@ export default function IngredientsPage() {
                           </div>
                         )}
 
-                        {category !== SEASONING_CATEGORY && (
-                          <label className="flex items-center gap-1.5 text-xs text-neutral-600 dark:text-neutral-400">
-                            <input
-                              type="checkbox"
-                              checked={ing.canBuy}
-                              onChange={(e) =>
-                                updateIngredient(ing.id, {
-                                  canBuy: e.target.checked,
-                                })
-                              }
-                              className="h-3.5 w-3.5"
-                            />
-                            買い足し
-                          </label>
-                        )}
+                        <label className="flex items-center gap-1.5 text-xs text-neutral-600 dark:text-neutral-400">
+                          <input
+                            type="checkbox"
+                            checked={ing.canBuy}
+                            onChange={(e) =>
+                              updateIngredient(ing.id, {
+                                canBuy: e.target.checked,
+                              })
+                            }
+                            className="h-3.5 w-3.5"
+                          />
+                          買い足し
+                        </label>
 
-                        {category !== SEASONING_CATEGORY && ing.canBuy && (
+                        {ing.canBuy && (
                           <label className="flex items-center gap-1.5 text-xs text-neutral-600 dark:text-neutral-400">
                             買い足し個数
                             <input
